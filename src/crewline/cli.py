@@ -63,3 +63,26 @@ def crew_run(prompt: str, tier: str = typer.Option("light", help="light | medium
     res = ask(prompt, cwd, tier, purpose=purpose, write=write)  # type: ignore[arg-type]
     typer.echo(f"[{res.choice.cli}:{res.choice.model} ok={res.ok} {res.seconds:.0f}s]")
     typer.echo(res.text)
+
+
+@crew_app.command("solve")
+def crew_solve(brief: Path = typer.Argument(..., help="brief.md describing the change."),
+               repo: Path = typer.Option(Path("."), help="Git repository to change."),
+               gate: str = typer.Option(None, help="Shell command that must pass, e.g. 'uv run pytest -q'."),
+               solo: str = typer.Option(None, help="Baseline: one agent 'cli:model' instead of the crew."),
+               review: bool = typer.Option(True, help="Cross-vendor review of each task."),
+               keep: bool = typer.Option(False, help="Keep worktrees for inspection.")) -> None:
+    """Run the crew (or a solo baseline) on a brief. Result lands on a local branch; nothing is pushed."""
+    from dataclasses import asdict
+
+    from crewline.crew import team
+    from crewline.crew.models import Choice
+    if solo:
+        cli, model = solo.split(":", 1)
+        report = team.solo(repo, brief, gate, Choice(cli, model))  # type: ignore[arg-type]
+    else:
+        crew = team.Crew(repo, brief, gate)
+        report = crew.run(review=review)
+        if not keep:
+            crew.cleanup()
+    typer.echo(json.dumps(asdict(report), indent=2))
