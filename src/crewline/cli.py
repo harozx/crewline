@@ -20,10 +20,12 @@ def build_kafka() -> None:
 
 
 @evals_app.command("locate")
-def locate(limit: int = typer.Option(None, help="Only the first N eval tickets.")) -> None:
-    """Score file localisation baselines (recall@k)."""
+def locate(limit: int = typer.Option(None, help="Only the first N tickets."),
+           split: str = typer.Option("eval", help="eval (report) | dev (tune)"),
+           tag: str = typer.Option("p1", help="Label for the result file.")) -> None:
+    """Score file localisation methods (recall@k)."""
     from crewline.evals import kafka
-    typer.echo(json.dumps(kafka.evaluate(limit), indent=2))
+    typer.echo(json.dumps(kafka.evaluate(limit, split, tag), indent=2))
 
 
 @crew_app.command("run")

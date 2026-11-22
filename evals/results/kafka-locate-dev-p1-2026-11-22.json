@@ -1,0 +1,45 @@
+{
+  "benchmark": "kafka-locate",
+  "split": "dev",
+  "cutoff": "2026-07-01",
+  "n": 272,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.148,
+      "recall@5": 0.306,
+      "recall@10": 0.365,
+      "recall@20": 0.431
+    },
+    "history": {
+      "recall@1": 0.113,
+      "recall@5": 0.267,
+      "recall@10": 0.355,
+      "recall@20": 0.444
+    },
+    "symbols": {
+      "recall@1": 0.206,
+      "recall@5": 0.392,
+      "recall@10": 0.471,
+      "recall@20": 0.573
+    },
+    "mentions": {
+      "recall@1": 0.244,
+      "recall@5": 0.356,
+      "recall@10": 0.379,
+      "recall@20": 0.392
+    },
+    "baseline": {
+      "recall@1": 0.141,
+      "recall@5": 0.33,
+      "recall@10": 0.473,
+      "recall@20": 0.62
+    },
+    "all": {
+      "recall@1": 0.236,
+      "recall@5": 0.443,
+      "recall@10": 0.552,
+      "recall@20": 0.662
+    }
+  }
+}

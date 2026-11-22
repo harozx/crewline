@@ -48,9 +48,10 @@ def rank_history(query: str, history: list[dict], alive: set[str], k: int = 50, 
     return [f for f, _ in sorted(acc.items(), key=lambda x: -x[1])[:k]]
 
 
-def fuse(*rankings: list[str], k: int = 50, c: int = 60) -> list[str]:
+def fuse(*rankings: list[str], weights: list[float] | None = None, k: int = 50, c: int = 60) -> list[str]:
+    """Weighted reciprocal-rank fusion."""
     acc: dict[str, float] = defaultdict(float)
-    for r in rankings:
+    for r, w in zip(rankings, weights or [1.0] * len(rankings), strict=True):
         for i, f in enumerate(r):
-            acc[f] += 1 / (c + i + 1)
+            acc[f] += w / (c + i + 1)
     return [f for f, _ in sorted(acc.items(), key=lambda x: -x[1])[:k]]

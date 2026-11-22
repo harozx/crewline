@@ -1,0 +1,51 @@
+{
+  "benchmark": "kafka-locate",
+  "split": "eval",
+  "cutoff": "2026-07-01",
+  "n": 179,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.167,
+      "recall@5": 0.313,
+      "recall@10": 0.417,
+      "recall@20": 0.502
+    },
+    "history": {
+      "recall@1": 0.177,
+      "recall@5": 0.393,
+      "recall@10": 0.452,
+      "recall@20": 0.538
+    },
+    "symbols": {
+      "recall@1": 0.298,
+      "recall@5": 0.5,
+      "recall@10": 0.583,
+      "recall@20": 0.641
+    },
+    "mentions": {
+      "recall@1": 0.344,
+      "recall@5": 0.493,
+      "recall@10": 0.509,
+      "recall@20": 0.523
+    },
+    "baseline": {
+      "recall@1": 0.204,
+      "recall@5": 0.444,
+      "recall@10": 0.58,
+      "recall@20": 0.699
+    },
+    "all": {
+      "recall@1": 0.369,
+      "recall@5": 0.554,
+      "recall@10": 0.631,
+      "recall@20": 0.729
+    },
+    "tuned": {
+      "recall@1": 0.359,
+      "recall@5": 0.591,
+      "recall@10": 0.673,
+      "recall@20": 0.723
+    }
+  }
+}

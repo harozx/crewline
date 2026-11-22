@@ -50,3 +50,11 @@ def by_key(commits: list[Commit], pattern: str) -> dict[str, list[Commit]]:
 
 def ls_tree(repo: Path, sha: str) -> list[str]:
     return _git(repo, "ls-tree", "-r", "--name-only", sha).splitlines()
+
+
+def rev_before(repo: Path, date: str, ref: str = "origin/HEAD") -> str:
+    return _git(repo, "rev-list", "-1", f"--before={date}T00:00:00Z", ref).strip()
+
+
+def head(repo: Path) -> str:
+    return _git(repo, "rev-parse", "HEAD").strip()
