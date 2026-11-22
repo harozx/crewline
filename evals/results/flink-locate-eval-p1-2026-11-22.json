@@ -1,0 +1,51 @@
+{
+  "benchmark": "flink-locate",
+  "split": "eval",
+  "cutoff": "2026-07-01",
+  "n": 358,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.159,
+      "recall@5": 0.294,
+      "recall@10": 0.371,
+      "recall@20": 0.432
+    },
+    "history": {
+      "recall@1": 0.134,
+      "recall@5": 0.305,
+      "recall@10": 0.364,
+      "recall@20": 0.415
+    },
+    "symbols": {
+      "recall@1": 0.211,
+      "recall@5": 0.368,
+      "recall@10": 0.437,
+      "recall@20": 0.496
+    },
+    "mentions": {
+      "recall@1": 0.24,
+      "recall@5": 0.375,
+      "recall@10": 0.401,
+      "recall@20": 0.41
+    },
+    "baseline": {
+      "recall@1": 0.179,
+      "recall@5": 0.361,
+      "recall@10": 0.484,
+      "recall@20": 0.59
+    },
+    "all": {
+      "recall@1": 0.25,
+      "recall@5": 0.47,
+      "recall@10": 0.542,
+      "recall@20": 0.613
+    },
+    "tuned": {
+      "recall@1": 0.252,
+      "recall@5": 0.492,
+      "recall@10": 0.581,
+      "recall@20": 0.622
+    }
+  }
+}

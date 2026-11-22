@@ -41,6 +41,18 @@ def brief(key: str, jira: str = typer.Option("https://issues.apache.org/jira", h
     typer.echo(str(path))
 
 
+@app.command("locate")
+def locate_cmd(ticket: str = typer.Argument(..., help="Ticket text, or a path to brief.md."),
+               repo: Path = typer.Option(Path("."), help="Git repository to search."),
+               top: int = typer.Option(10, help="How many files to return."),
+               agent: bool = typer.Option(True, help="Let an agent re-rank the top 60."),
+               as_json: bool = typer.Option(False, "--json", help="JSON instead of a markdown table.")) -> None:
+    """Rank the files a ticket most likely needs changed, with the evidence for each."""
+    from crewline.locate import engine
+    hits = engine.locate(repo, engine.ticket_text(ticket), top=top, use_agent=agent)
+    typer.echo(engine.to_json(hits) if as_json else engine.to_markdown(hits))
+
+
 @crew_app.command("run")
 def crew_run(prompt: str, tier: str = typer.Option("light", help="light | medium | heavy"),
              cwd: Path = typer.Option(Path("."), help="Working directory for the agent."),
