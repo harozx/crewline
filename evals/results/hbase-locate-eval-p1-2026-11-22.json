@@ -1,0 +1,51 @@
+{
+  "benchmark": "hbase-locate",
+  "split": "eval",
+  "cutoff": "2026-07-01",
+  "n": 61,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.296,
+      "recall@5": 0.55,
+      "recall@10": 0.631,
+      "recall@20": 0.727
+    },
+    "history": {
+      "recall@1": 0.168,
+      "recall@5": 0.431,
+      "recall@10": 0.513,
+      "recall@20": 0.581
+    },
+    "symbols": {
+      "recall@1": 0.44,
+      "recall@5": 0.698,
+      "recall@10": 0.743,
+      "recall@20": 0.809
+    },
+    "mentions": {
+      "recall@1": 0.462,
+      "recall@5": 0.703,
+      "recall@10": 0.72,
+      "recall@20": 0.736
+    },
+    "baseline": {
+      "recall@1": 0.337,
+      "recall@5": 0.541,
+      "recall@10": 0.64,
+      "recall@20": 0.776
+    },
+    "all": {
+      "recall@1": 0.46,
+      "recall@5": 0.724,
+      "recall@10": 0.801,
+      "recall@20": 0.855
+    },
+    "tuned": {
+      "recall@1": 0.46,
+      "recall@5": 0.703,
+      "recall@10": 0.783,
+      "recall@20": 0.833
+    }
+  }
+}

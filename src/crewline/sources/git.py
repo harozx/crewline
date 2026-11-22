@@ -58,3 +58,7 @@ def rev_before(repo: Path, date: str, ref: str = "origin/HEAD") -> str:
 
 def head(repo: Path) -> str:
     return _git(repo, "rev-parse", "HEAD").strip()
+
+
+def checkout(repo: Path, sha: str) -> None:
+    _git(repo, "checkout", "-q", sha)

@@ -1,7 +1,9 @@
-"""Apache Kafka localisation benchmark: public Jira + git history, tickets linked to fixes by `KAFKA-nnnn`.
+"""Apache localisation benchmark: public Jira + git history, tickets linked to fixes by `<PROJECT>-nnnn`.
 
 Eval tickets are Fixed and created on/after CUTOFF (contamination guard). Gold = existing non-test code files
 the fix commits modified. History = every linked ticket whose fix landed before the eval ticket was created.
+The symbol index comes from the last commit before CUTOFF, so later fixes cannot leak into it.
+Dev split (DEV_FROM..CUTOFF) is for tuning; eval is for reporting only.
 """
 
 from __future__ import annotations
@@ -22,22 +24,31 @@ CUTOFF = "2026-07-01"
 HISTORY_SINCE = "2023-01-01"
 DEV_FROM = "2026-01-01"
 KS = (1, 5, 10, 20)
+PROJECTS = {"kafka": "KAFKA", "flink": "FLINK", "hbase": "HBASE", "hive": "HIVE"}
+COMPONENTS = ("path", "history", "symbols", "mentions")
+
+FUSIONS = {
+    "baseline": {"path": 1, "history": 1},
+    "all": {"path": 1, "history": 1, "symbols": 1, "mentions": 1},
+    # grid-searched on the Kafka dev split (2026-01..06), never on eval
+    "tuned": {"path": 0.5, "history": 3, "symbols": 0.5, "mentions": 3},
+}
 
 
-def paths() -> tuple[Path, Path]:
-    d = data_dir() / "datasets" / "kafka"
+def paths(project: str) -> tuple[Path, Path]:
+    d = data_dir() / "datasets" / project
     d.mkdir(parents=True, exist_ok=True)
-    return data_dir() / "repos" / "kafka", d
+    return data_dir() / "repos" / project, d
 
 
-def build() -> dict:
-    repo, out = paths()
-    commits = git.log(repo, "HEAD", since=HISTORY_SINCE)
-    keymap = git.by_key(commits, r"KAFKA-\d+")
-    jira = Jira(JIRA)
-    jql = f'project = KAFKA AND resolution = Fixed AND resolved >= "{HISTORY_SINCE}" ORDER BY created ASC'
+def build(project: str) -> dict:
+    repo, out = paths(project)
+    key = PROJECTS[project]
+    commits = git.log(repo, "origin/HEAD", since=HISTORY_SINCE)
+    keymap = git.by_key(commits, rf"\b{key}-\d+")
+    jql = f'project = {key} AND resolution = Fixed AND resolved >= "{HISTORY_SINCE}" ORDER BY created ASC'
     rows = []
-    for issue in jira.search(jql, fields="summary,description,created,resolutiondate,issuetype,components"):
+    for issue in Jira(JIRA).search(jql, fields="summary,description,created,resolutiondate,issuetype,components"):
         t = flatten(issue)
         fixes = sorted(keymap.get(t["key"], []), key=lambda c: c.date)
         if not fixes:
@@ -49,12 +60,13 @@ def build() -> dict:
     with open(out / "tickets.jsonl", "w", encoding="utf-8") as fh:
         for r in rows:
             fh.write(json.dumps(r, ensure_ascii=False) + "\n")
-    n_eval = sum(1 for r in rows if r["eval"] and r["files"])
-    return {"linked_tickets": len(rows), "eval_tickets": n_eval, "commits_scanned": len(commits)}
+    return {"project": project, "linked_tickets": len(rows), "commits_scanned": len(commits),
+            "eval_tickets": sum(1 for r in rows if r["eval"] and r["files"]),
+            "dev_tickets": sum(1 for r in rows if DEV_FROM <= r["created"] < CUTOFF and r["files"])}
 
 
-def load() -> list[dict]:
-    _, out = paths()
+def load(project: str) -> list[dict]:
+    _, out = paths(project)
     return [json.loads(line) for line in open(out / "tickets.jsonl", encoding="utf-8")]
 
 
@@ -62,31 +74,32 @@ def recall(ranked: list[str], gold: list[str], k: int) -> float:
     return len(set(ranked[:k]) & set(gold)) / len(gold)
 
 
-def symbol_index() -> SymbolIndex:
-    """Symbols from the repo checked out at the last commit before CUTOFF (no leakage from later fixes)."""
-    repo, out = paths()
+def symbol_index(project: str) -> SymbolIndex:
+    repo, out = paths(project)
     snap = git.rev_before(repo, CUTOFF)
     path = out / f"symbols-{snap[:10]}.json"
     if not path.exists():
         if git.head(repo) != snap:
-            raise RuntimeError(f"check out {snap} in {repo} first (git checkout {snap})")
+            git.checkout(repo, snap)   # our own data clone; fetches blobs once
         symbols.build(repo, path)
     return SymbolIndex.load(path)
 
 
-def rankings(split: str = "eval", limit: int | None = None) -> list[dict]:
+def split_rows(rows: list[dict], split: str) -> list[dict]:
+    if split == "eval":
+        return [r for r in rows if r["eval"] and r["files"]]
+    return [r for r in rows if DEV_FROM <= r["created"] < CUTOFF and r["files"]]
+
+
+def rankings(project: str, split: str = "eval", limit: int | None = None) -> list[dict]:
     """Per-ticket rankings from every component, cached so fusion can be tuned without recomputing."""
-    repo, out = paths()
+    repo, out = paths(project)
     cache = out / f"rankings-{split}.jsonl"
     if cache.exists() and limit is None:
         return [json.loads(line) for line in open(cache, encoding="utf-8")]
-    rows = load()
-    if split == "eval":
-        chosen = [r for r in rows if r["eval"] and r["files"]]
-    else:  # dev: tuning set, the six months before the cutoff
-        chosen = [r for r in rows if DEV_FROM <= r["created"] < CUTOFF and r["files"]]
-    chosen = chosen[:limit]
-    sym = symbol_index()
+    rows = load(project)
+    chosen = split_rows(rows, split)[:limit]
+    sym = symbol_index(project)
     tree_cache: dict[str, list[str]] = {}
     result = []
     for t in chosen:
@@ -111,16 +124,8 @@ def rankings(split: str = "eval", limit: int | None = None) -> list[dict]:
     return result
 
 
-FUSIONS = {
-    "baseline": {"path": 1, "history": 1},
-    "all": {"path": 1, "history": 1, "symbols": 1, "mentions": 1},
-    # grid-searched on the dev split (2026-01..06), never on eval
-    "tuned": {"path": 0.5, "history": 3, "symbols": 0.5, "mentions": 3},
-}
-
-
 def score(rows: list[dict], fusions: dict[str, dict[str, float]]) -> dict:
-    methods = {m: {m: 1.0} for m in ("path", "history", "symbols", "mentions")} | fusions
+    methods = {m: {m: 1.0} for m in COMPONENTS} | fusions
     out = {}
     for name, weights in methods.items():
         per = {k: [] for k in KS}
@@ -132,12 +137,12 @@ def score(rows: list[dict], fusions: dict[str, dict[str, float]]) -> dict:
     return out
 
 
-def evaluate(limit: int | None = None, split: str = "eval", tag: str = "p1") -> dict:
-    rows = rankings(split, limit)
-    result = {"benchmark": "kafka-locate", "split": split, "cutoff": CUTOFF, "n": len(rows),
+def evaluate(project: str, limit: int | None = None, split: str = "eval", tag: str = "p1") -> dict:
+    rows = rankings(project, split, limit)
+    result = {"benchmark": f"{project}-locate", "split": split, "cutoff": CUTOFF, "n": len(rows),
               "date": time.strftime("%Y-%m-%d"), "methods": score(rows, FUSIONS)}
     if limit is None:
         res_dir = Path(__file__).resolve().parents[3] / "evals" / "results"
         res_dir.mkdir(parents=True, exist_ok=True)
-        (res_dir / f"kafka-locate-{split}-{tag}-{result['date']}.json").write_text(json.dumps(result, indent=2))
+        (res_dir / f"{project}-locate-{split}-{tag}-{result['date']}.json").write_text(json.dumps(result, indent=2))
     return result

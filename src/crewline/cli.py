@@ -12,20 +12,21 @@ app.add_typer(evals_app, name="eval")
 app.add_typer(crew_app, name="crew")
 
 
-@evals_app.command("build-kafka")
-def build_kafka() -> None:
-    """Fetch Kafka Jira tickets and link them to fix commits."""
-    from crewline.evals import kafka
-    typer.echo(json.dumps(kafka.build(), indent=2))
+@evals_app.command("build")
+def build(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive")) -> None:
+    """Fetch an Apache project's Jira tickets and link them to fix commits (repo cloned in <data>/repos)."""
+    from crewline.evals import apache
+    typer.echo(json.dumps(apache.build(project), indent=2))
 
 
 @evals_app.command("locate")
-def locate(limit: int = typer.Option(None, help="Only the first N tickets."),
+def locate(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive"),
+           limit: int = typer.Option(None, help="Only the first N tickets."),
            split: str = typer.Option("eval", help="eval (report) | dev (tune)"),
            tag: str = typer.Option("p1", help="Label for the result file.")) -> None:
     """Score file localisation methods (recall@k)."""
-    from crewline.evals import kafka
-    typer.echo(json.dumps(kafka.evaluate(limit, split, tag), indent=2))
+    from crewline.evals import apache
+    typer.echo(json.dumps(apache.evaluate(project, limit, split, tag), indent=2))
 
 
 @app.command("brief")

@@ -1,0 +1,51 @@
+{
+  "benchmark": "hive-locate",
+  "split": "eval",
+  "cutoff": "2026-07-01",
+  "n": 112,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.165,
+      "recall@5": 0.284,
+      "recall@10": 0.334,
+      "recall@20": 0.399
+    },
+    "history": {
+      "recall@1": 0.077,
+      "recall@5": 0.216,
+      "recall@10": 0.325,
+      "recall@20": 0.383
+    },
+    "symbols": {
+      "recall@1": 0.198,
+      "recall@5": 0.339,
+      "recall@10": 0.391,
+      "recall@20": 0.491
+    },
+    "mentions": {
+      "recall@1": 0.223,
+      "recall@5": 0.341,
+      "recall@10": 0.355,
+      "recall@20": 0.367
+    },
+    "baseline": {
+      "recall@1": 0.18,
+      "recall@5": 0.317,
+      "recall@10": 0.426,
+      "recall@20": 0.539
+    },
+    "all": {
+      "recall@1": 0.232,
+      "recall@5": 0.389,
+      "recall@10": 0.489,
+      "recall@20": 0.585
+    },
+    "tuned": {
+      "recall@1": 0.246,
+      "recall@5": 0.465,
+      "recall@10": 0.533,
+      "recall@20": 0.596
+    }
+  }
+}

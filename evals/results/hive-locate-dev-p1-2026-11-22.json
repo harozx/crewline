@@ -1,0 +1,51 @@
+{
+  "benchmark": "hive-locate",
+  "split": "dev",
+  "cutoff": "2026-07-01",
+  "n": 142,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.186,
+      "recall@5": 0.268,
+      "recall@10": 0.335,
+      "recall@20": 0.37
+    },
+    "history": {
+      "recall@1": 0.103,
+      "recall@5": 0.24,
+      "recall@10": 0.32,
+      "recall@20": 0.368
+    },
+    "symbols": {
+      "recall@1": 0.175,
+      "recall@5": 0.293,
+      "recall@10": 0.35,
+      "recall@20": 0.429
+    },
+    "mentions": {
+      "recall@1": 0.204,
+      "recall@5": 0.333,
+      "recall@10": 0.362,
+      "recall@20": 0.401
+    },
+    "baseline": {
+      "recall@1": 0.159,
+      "recall@5": 0.304,
+      "recall@10": 0.393,
+      "recall@20": 0.526
+    },
+    "all": {
+      "recall@1": 0.212,
+      "recall@5": 0.381,
+      "recall@10": 0.447,
+      "recall@20": 0.513
+    },
+    "tuned": {
+      "recall@1": 0.232,
+      "recall@5": 0.405,
+      "recall@10": 0.47,
+      "recall@20": 0.555
+    }
+  }
+}

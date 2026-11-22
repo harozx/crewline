@@ -1,0 +1,13 @@
+{
+  "benchmark": "kafka-locate",
+  "split": "eval",
+  "cutoff": "2026-07-01",
+  "n": 179,
+  "date": "2026-11-22",
+  "method": "tuned fusion top-30 -> agy gemini-4-neon-medium re-rank (paths + declared symbols only)",
+  "failed_calls": 4,
+  "fused": {"recall@1": 0.359, "recall@5": 0.591, "recall@10": 0.673},
+  "rerank": {"recall@1": 0.549, "recall@5": 0.706, "recall@10": 0.728},
+  "dev_probe_40": {"gemini-4-neon-medium": 0.650, "gemini-3.8-flash-low": 0.639, "gpt-5.6-luna": 0.595, "fused": 0.565},
+  "caveat": "Models may know Kafka's code layout from pretraining; private codebases may gain less from re-ranking."
+}
