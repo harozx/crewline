@@ -19,6 +19,21 @@ def build(project: str = typer.Option("kafka", help="kafka | flink | hbase | hiv
     typer.echo(json.dumps(apache.build(project), indent=2))
 
 
+@evals_app.command("solve-build")
+def solve_build(repo: str = typer.Option("click"), limit: int = typer.Option(80)) -> None:
+    """Collect and validate solve instances (hidden tests fail at base, pass with the real fix) in Docker."""
+    from crewline.evals import solve
+    typer.echo(json.dumps(solve.build(repo, limit), indent=2))
+
+
+@evals_app.command("solve")
+def solve_run(mode: str = typer.Option("crew", help="crew | solo:<cli>:<model>"),
+              repo: str = typer.Option("click"), limit: int = typer.Option(None)) -> None:
+    """Run crew or a solo agent on solve instances and score with the hidden tests."""
+    from crewline.evals import solve
+    typer.echo(json.dumps(solve.run(repo, mode, limit), indent=2))
+
+
 @evals_app.command("memory")
 def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
     """Review with vs without team memory: how often the agent raises the human reviewer's point."""

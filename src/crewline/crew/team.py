@@ -147,7 +147,7 @@ class Crew:
         if not self.gate_cmd:
             return True, ""
         self._unseed(wt)
-        code, out = _sh(self.gate_cmd, wt)
+        code, out = _sh(self.gate_cmd.replace("{wt}", str(wt)), wt)   # {wt}: e.g. a Docker volume mount
         return code == 0, out[-3000:]
 
     def _call(self, task: str, role: str, choice: Choice, prompt: str, cwd: Path, write: bool) -> adapters.Result:
