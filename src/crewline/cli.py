@@ -19,6 +19,13 @@ def build(project: str = typer.Option("kafka", help="kafka | flink | hbase | hiv
     typer.echo(json.dumps(apache.build(project), indent=2))
 
 
+@evals_app.command("memory")
+def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
+    """Review with vs without team memory: how often the agent raises the human reviewer's point."""
+    from crewline.evals import memory
+    typer.echo(json.dumps(memory.run(n), indent=2))
+
+
 @evals_app.command("locate")
 def locate(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive"),
            limit: int = typer.Option(None, help="Only the first N tickets."),

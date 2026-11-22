@@ -95,8 +95,16 @@ def _git(cwd: Path, *args: str) -> str:
 
 
 def _json(text: str) -> dict:
-    m = re.search(r"\{.*\}", text, re.S)
-    return json.loads(m.group(0)) if m else {}
+    """First JSON object in an agent reply (fenced or bare); {} when there is none."""
+    dec = json.JSONDecoder()
+    for m in re.finditer(r"\{", text or ""):
+        try:
+            obj, _ = dec.raw_decode(text[m.start():])
+            if isinstance(obj, dict):
+                return obj
+        except ValueError:
+            continue
+    return {}
 
 
 class Crew:

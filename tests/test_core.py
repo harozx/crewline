@@ -33,3 +33,14 @@ def test_wiki_images_with_spaces_and_code_kept_verbatim():
     assert "## Bug" in md
     assert "![image: Screenshot 2026 at 1.59 PM.png](attachment:Screenshot 2026 at 1.59 PM.png)" in md
     assert "```java\na*b*c\n```" in md
+
+
+def test_memory_recall_respects_acl_and_date(tmp_path):
+    from crewline.memory.store import Item, Memory
+    m = Memory(tmp_path / "m.sqlite")
+    m.add(Item("org/public", "a/B.java", "pitfall", "public lesson", "u1", "s1", "2026-01-01"))
+    m.add(Item("org/secret", "a/B.java", "pitfall", "secret lesson", "u2", "s2", "2026-01-02"))
+    m.add(Item("org/public", "a/C.java", "convention", "same dir", "u3", "s3", "2026-03-01"))
+    got = m.recall(["a/B.java"], allowed=lambda scope: scope == "org/public")
+    assert [i.lesson for i in got] == ["public lesson", "same dir"]
+    assert [i.lesson for i in m.recall(["a/B.java"], lambda s: True, before="2026-01-02")] == ["public lesson"]

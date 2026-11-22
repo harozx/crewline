@@ -1,6 +1,7 @@
 """Thin adapters over the local agent CLIs. One call = one non-interactive agent turn in a working directory.
 
-Every call is appended to <data>/ledger/calls.jsonl (cli, model, tier, tokens, seconds, status) - no prompts,
+Every call is appended to <data>/ledger/calls.jsonl (cli, model, tier, tokens, seconds, status; for failures
+the last 200 chars of the error) - no prompts,
 no outputs, so the ledger never holds code or secrets.
 """
 
@@ -60,6 +61,23 @@ def _cmd(choice: Choice, prompt: str, write: bool, timeout: int) -> list[str]:
     return cmd
 
 
+def _last_json(stdout: str) -> dict:
+    """The CLI's final JSON object: try whole output, then line by line from the end (CLIs may print notices)."""
+    try:
+        start = stdout.find("{")
+        return json.loads(stdout[start:]) if start >= 0 else {}
+    except ValueError:
+        pass
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                return json.loads(line)
+            except ValueError:
+                continue
+    return {}
+
+
 def _parse(choice: Choice, stdout: str) -> tuple[str, int | None, int | None, dict]:
     """Return (final text, input tokens, output tokens, raw)."""
     if choice.cli == "codex":
@@ -76,8 +94,7 @@ def _parse(choice: Choice, stdout: str) -> tuple[str, int | None, int | None, di
             if usage:
                 tin, tout = usage.get("input_tokens"), usage.get("output_tokens")
         return text, tin, tout, {}
-    start = stdout.find("{")
-    raw = json.loads(stdout[start:]) if start >= 0 else {}
+    raw = _last_json(stdout)
     usage = raw.get("usage") or {}
     text = raw.get("result") if choice.cli == "claude" else raw.get("response")
     return text or "", usage.get("input_tokens"), usage.get("output_tokens"), raw
@@ -112,5 +129,7 @@ def _ledger(r: Result, tier: str, purpose: str) -> None:
     row = {"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "cli": r.choice.cli, "model": r.choice.model,
            "tier": tier, "purpose": purpose, "ok": r.ok, "rate_limited": r.rate_limited,
            "seconds": round(r.seconds, 1), "in": r.tokens_in, "out": r.tokens_out}
+    if not r.ok:
+        row["error"] = r.text[-200:]
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(row) + "\n")
