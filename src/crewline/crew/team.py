@@ -179,11 +179,13 @@ class Crew:
         feedback, tier, tries = "", task.tier, 0
         writer_vendor = ""
         while tier:
-            for choice in self.pick(tier)[:1]:
+            for choice in self.pick(tier):
                 self._seed(wt)
                 prompt = WORK_PROMPT.format(title=task.title, instructions=task.instructions,
                                             files=", ".join(task.files) or "as needed", feedback=feedback)
                 res = self._call(task.id, f"worker:{tier}", choice, prompt, wt, True)
+                if res.rate_limited:
+                    continue   # quota hit: same attempt on the next CLI, not a failed try
                 writer_vendor = choice.vendor
                 changed = bool(self._diff(wt).strip())
                 passed, tail = self._gate(wt) if changed else (False, "")
@@ -191,6 +193,10 @@ class Crew:
                     return wt, True, writer_vendor
                 feedback = ("Your previous attempt did not pass. Gate output (tail):\n" + tail) if tail else \
                     "Your previous attempt failed to produce a change."
+                break      # one attempt per try; retry / escalate below
+            else:
+                if not self.pick(tier):   # every CLI for this tier is out of quota
+                    return wt, False, writer_vendor
             tries += 1
             if tries >= 2:
                 tier, tries = ESCALATE[tier], 0

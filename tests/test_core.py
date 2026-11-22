@@ -52,3 +52,12 @@ def test_shim_clis_get_multiline_prompt_on_stdin():
     for cli in ("claude", "codex"):
         argv, stdin = _cmd(Choice(cli, "m"), "line1\nline2", write=True, timeout=60)
         assert stdin == "line1\nline2" and "line2" not in " ".join(argv)
+
+
+def test_quota_block_removes_cli_from_routing(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREWLINE_DATA", str(tmp_path))
+    from crewline.crew.models import block_quota, pick
+    block_quota("codex")
+    assert all(c.cli != "codex" for c in pick("medium"))
+    block_quota("claude", hours=-1)   # an expired block does not count
+    assert any(c.cli == "claude" for c in pick("heavy"))

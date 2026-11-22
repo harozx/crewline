@@ -130,6 +130,9 @@ def run(choice: Choice, prompt: str, cwd: str | Path, *, tier: str = "", purpose
                  choice=choice, seconds=secs, tokens_in=tin, tokens_out=tout,
                  rate_limited=failed and any(h in blob for h in RATE_LIMIT_HINTS), raw=raw)
     _ledger(res, tier, purpose)
+    if res.rate_limited:   # stop every process from hammering an exhausted subscription
+        from crewline.crew.models import block_quota
+        block_quota(choice.cli)
     return res
 
 

@@ -4,9 +4,15 @@
   "n": 60,
   "date": "2026-11-22",
   "reviewer": "gemini-4-neon-medium",
-  "hit_rate_no_memory": 0.517,
-  "hit_rate_memory": 0.383,
+  "hit_rate_no_memory": 0.467,
+  "hit_rate_memory": 0.483,
+  "hit_rate_memory_additive": 0.467,
+  "mean_issues": {
+    "off": 3.9,
+    "on": 3.55,
+    "add": 3.93
+  },
   "mean_lessons": 5.6,
-  "only_with_memory": 2,
-  "only_without_memory": 10
+  "only_with_memory": 3,
+  "only_without_memory": 2
 }

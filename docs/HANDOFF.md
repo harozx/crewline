@@ -4,6 +4,20 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-22 (4) · P1 xong; P2 bị chặn vì hết quota; P3 chưa có lợi ích đo được
+
+- **P1 (xong, đạt):** rerank 60 ứng viên bằng Neon, r@10 eval: Kafka 0.799, HBase 0.882, Flink 0.704, Hive 0.654 → trung bình có trọng số **0.735** trên 710 ticket (mục tiêu 0.70).
+- **P2:**
+  - Đội agent chạy trọn vòng lần đầu trên repo này (lead Claude → worker Codex → review Claude, cổng xanh) và đã merge (`crewline eval rerank`).
+  - Bộ chấm solve (`evals/solve.py`): 16 issue click sau 07/2026, test ẩn, Docker `--network none`, đã cài click trong container, image có `less`; cổng xanh trên bản gốc của cả 16; chấm bản sửa thật ra resolved.
+  - Lượt so solo/đội **không dùng được**: Claude chạm giới hạn 5 giờ (mở lại 23:30 22/11), **Codex hết hạn mức tới 22/12/2026** ("Upgrade to Plus"). Mỗi lượt worker Codex đọc ~450–500k token.
+  - Đã sửa: CLI hết quota ghi vào `ledger/quota_blocked.json` và bị router bỏ qua cho tới hạn; worker chuyển sang CLI kế tiếp khi gặp quota thay vì tính là thất bại.
+- **P3:** 803 bài học. Đo review 60 comment: lượt 1 không nhớ 0.517 / nhét prompt 0.383; lượt 2 không nhớ 0.467 / nhét prompt 0.483 / cộng thêm 0.467. → Nhiễu giữa hai lượt (~5 điểm) lớn hơn hiệu ứng; **chưa có lợi ích đo được**. Kiểu cộng thêm không gây hại.
+
+**Bước kế (cần owner quyết):** chạy so solo/đội chỉ bằng agy (Gemini + Claude qua agy), tuần tự, ít song song; hoặc chờ quota.
+
+---
+
 ## 2026-11-22 (3) · TẠM DỪNG: P1 gần xong, P2 sửa lỗi gốc, P3 có 803 bài học
 
 - **P1 định vị (eval, r@10):** rerank 60 ứng viên bằng Neon: Kafka **0.799**, HBase **0.882**, Hive **0.654**; Flink đang dở (297/358 ticket đã cache).
