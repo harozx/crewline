@@ -45,23 +45,25 @@ def _exe(name: str) -> str:
     raise FileNotFoundError(f"{name} CLI not found on PATH")
 
 
-def _cmd(choice: Choice, prompt: str, write: bool, timeout: int) -> list[str]:
+def _cmd(choice: Choice, prompt: str, write: bool, timeout: int) -> tuple[list[str], str | None]:
+    """(argv, stdin). claude and codex are npm .cmd shims on Windows: cmd.exe cuts arguments at the first
+    newline, so their prompt goes through stdin. agy is a real .exe and takes it as an argument."""
     if choice.cli == "claude":
-        cmd = [_exe("claude"), "-p", prompt, "--model", choice.model, "--output-format", "json"]
+        cmd = [_exe("claude"), "-p", "--model", choice.model, "--output-format", "json"]
         if write:
             cmd += ["--permission-mode", "acceptEdits"]
-        return cmd
+        return cmd, prompt
     if choice.cli == "codex":
         cmd = [_exe("codex"), "exec", "--skip-git-repo-check", "--json", "-m", choice.model,
                "--sandbox", "workspace-write" if write else "read-only"]
         if choice.effort:
             cmd += ["-c", f"model_reasoning_effort={choice.effort}"]
-        return cmd + [prompt]
+        return cmd + ["-"], prompt
     cmd = [_exe("agy"), "-p", prompt, "--model", choice.model, "--output-format", "json",
            "--print-timeout", f"{timeout}s"]
     if write:
         cmd += ["--mode", "accept-edits"]
-    return cmd
+    return cmd, None
 
 
 def _last_json(stdout: str) -> dict:
@@ -107,9 +109,9 @@ def run(choice: Choice, prompt: str, cwd: str | Path, *, tier: str = "", purpose
         write: bool = False, timeout: int = 1200) -> Result:
     t = time.time()
     try:
-        p = subprocess.run(_cmd(choice, SUB_AGENT + prompt, write, timeout), cwd=str(cwd), capture_output=True,
-                           text=True, encoding="utf-8", errors="replace", timeout=timeout + 60,
-                           stdin=subprocess.DEVNULL)
+        argv, stdin = _cmd(choice, SUB_AGENT + prompt, write, timeout)
+        p = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=timeout + 60, input=stdin, stdin=None if stdin is not None else subprocess.DEVNULL)
         out, err, code = p.stdout, p.stderr, p.returncode
     except subprocess.TimeoutExpired:
         out, err, code = "", "timeout", -1

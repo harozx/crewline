@@ -44,3 +44,11 @@ def test_memory_recall_respects_acl_and_date(tmp_path):
     got = m.recall(["a/B.java"], allowed=lambda scope: scope == "org/public")
     assert [i.lesson for i in got] == ["public lesson", "same dir"]
     assert [i.lesson for i in m.recall(["a/B.java"], lambda s: True, before="2026-01-02")] == ["public lesson"]
+
+
+def test_shim_clis_get_multiline_prompt_on_stdin():
+    from crewline.crew.adapters import _cmd
+    from crewline.crew.models import Choice
+    for cli in ("claude", "codex"):
+        argv, stdin = _cmd(Choice(cli, "m"), "line1\nline2", write=True, timeout=60)
+        assert stdin == "line1\nline2" and "line2" not in " ".join(argv)

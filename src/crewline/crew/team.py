@@ -184,8 +184,9 @@ class Crew:
                                             files=", ".join(task.files) or "as needed", feedback=feedback)
                 res = self._call(task.id, f"worker:{tier}", choice, prompt, wt, True)
                 writer_vendor = choice.vendor
-                passed, tail = self._gate(wt)
-                if res.ok and passed:
+                changed = bool(self._diff(wt).strip())
+                passed, tail = self._gate(wt) if changed else (False, "")
+                if res.ok and changed and passed:
                     return wt, True, writer_vendor
                 feedback = ("Your previous attempt did not pass. Gate output (tail):\n" + tail) if tail else \
                     "Your previous attempt failed to produce a change."
