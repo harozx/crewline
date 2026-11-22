@@ -34,15 +34,18 @@ ROUTES: dict[Tier, list[Choice]] = {
         Choice("codex", "gpt-5.6-luna", "low"),
         Choice("claude", "haiku"),
     ],
+    # Gemini first for code-writing tiers: through headless agy it sticks to file tools, while Claude models keep
+    # calling run_command (denied) and end the turn empty (2026-11-23 trace). Claude-via-agy stays as a fallback
+    # and as the other-vendor reviewer.
     "medium": [
-        Choice("agy", "claude-sonnet-5-5-medium"),
         Choice("agy", "gemini-4-neon-medium"),
+        Choice("agy", "claude-sonnet-5-5-medium"),
         Choice("codex", "gpt-5.6-terra", "medium"),
         Choice("claude", "sonnet"),
     ],
     "heavy": [
-        Choice("agy", "claude-opus-5-5-high"),
         Choice("agy", "gemini-4-neon-high"),
+        Choice("agy", "claude-opus-5-5-high"),
         Choice("claude", "opus"),
         Choice("codex", "gpt-5.6-terra", "high"),
     ],

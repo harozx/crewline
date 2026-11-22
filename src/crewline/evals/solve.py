@@ -196,10 +196,16 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
     repo, out = paths(name)
     insts = load(name)[:limit]
     tag = re.sub(r"[^a-z0-9]+", "-", mode.lower()) + "-"
-    res_dir = out / "runs" / f"{mode.replace(':', '_')}-{time.strftime('%Y%m%d-%H%M')}"
+    prefix = mode.replace(":", "_")
+    earlier = sorted((out / "runs").glob(f"{prefix}-*/rows.jsonl")) if (out / "runs").exists() else []
+    # resume the latest run of this mode instead of starting over (runs are long; machines get interrupted)
+    res_dir = earlier[-1].parent if earlier else out / "runs" / f"{prefix}-{time.strftime('%Y%m%d-%H%M')}"
     res_dir.mkdir(parents=True, exist_ok=True)
-    rows = []
+    rows = [json.loads(line) for line in open(res_dir / "rows.jsonl", encoding="utf-8")] if earlier else []
+    done = {r["id"] for r in rows}
     for inst in insts:
+        if inst["id"] in done:
+            continue
         base_wt = _worktree(repo, inst["base"], out / f"wt-base-{tag}{inst['id']}")
         _git(base_wt, "checkout", "-q", "-B", f"solve/{tag}{inst['id']}")
         bf = res_dir / f"{inst['id']}.md"
