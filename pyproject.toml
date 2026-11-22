@@ -1,0 +1,34 @@
+[project]
+name = "crewline"
+version = "0.1.0"
+description = "Ticket-to-PR crew: reads Jira/Confluence/GitHub, finds where to fix, remembers what the team learned, and runs local CLI agents (Claude, Codex, agy) as a tiered crew."
+readme = "README.md"
+authors = [{ name = "harozx" }]
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "typer>=0.12",
+    "rank-bm25>=0.2.2",
+]
+
+[project.scripts]
+crewline = "crewline.cli:app"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008"]  # typer.Option defaults are the typer idiom
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

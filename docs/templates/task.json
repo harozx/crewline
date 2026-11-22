@@ -1,0 +1,10 @@
+{
+  "id": "T-001",
+  "title": "Short imperative title",
+  "tier": "medium",
+  "files": ["path/allowed/to/change.py"],
+  "depends_on": [],
+  "context": "What the worker needs to know, with links to the brief and memory items.",
+  "acceptance": ["Gate commands or observable checks that must pass"],
+  "review_by": "different-vendor"
+}

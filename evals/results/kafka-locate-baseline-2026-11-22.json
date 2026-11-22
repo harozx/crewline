@@ -1,0 +1,26 @@
+{
+  "benchmark": "kafka-locate",
+  "cutoff": "2026-07-01",
+  "n": 179,
+  "date": "2026-11-22",
+  "methods": {
+    "path": {
+      "recall@1": 0.167,
+      "recall@5": 0.313,
+      "recall@10": 0.417,
+      "recall@20": 0.502
+    },
+    "history": {
+      "recall@1": 0.177,
+      "recall@5": 0.393,
+      "recall@10": 0.452,
+      "recall@20": 0.538
+    },
+    "fused": {
+      "recall@1": 0.204,
+      "recall@5": 0.444,
+      "recall@10": 0.58,
+      "recall@20": 0.699
+    }
+  }
+}
