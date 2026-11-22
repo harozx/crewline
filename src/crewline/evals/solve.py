@@ -23,8 +23,14 @@ from crewline.crew import team
 from crewline.crew.models import Choice
 
 CUTOFF = "2026-07-01"
-IMAGE = "crewline-py312:1"
-DOCKERFILE = "FROM python:3.12-slim\nRUN pip install --no-cache-dir pytest==8.3.5\n"
+IMAGE = "crewline-py312:3"
+# build backends baked in so the repo can be pip-installed inside a --network none container;
+# `less` because click's pager tests call it
+DOCKERFILE = ("FROM python:3.12-slim\n"
+              "RUN apt-get update && apt-get install -y --no-install-recommends less && rm -rf /var/lib/apt/lists/*\n"
+              "RUN pip install --no-cache-dir pytest==8.3.5 flit_core hatchling setuptools wheel\n")
+# some tests read the installed package's metadata (importlib.metadata), so PYTHONPATH alone is not enough
+INSTALL = "pip install -q --no-deps --no-build-isolation -e . >/dev/null 2>&1; "
 REPOS = {
     "click": {"slug": "pallets/click", "src": "src/", "tests": "tests/", "skip": ("tests/typing/",),
               "pythonpath": "src", "suite": "tests --ignore=tests/typing"},
@@ -58,7 +64,7 @@ def ensure_image() -> None:
 
 def docker_pytest(wt: Path, pythonpath: str, targets: str, junit: bool = True) -> tuple[int, str]:
     """Run pytest inside a throwaway container with no network; the worktree is the only mount."""
-    cmd = f"PYTHONPATH={pythonpath} python -m pytest -q -p no:cacheprovider {targets}"
+    cmd = f"{INSTALL}PYTHONPATH={pythonpath} python -m pytest -q -p no:cacheprovider {targets}"
     if junit:
         cmd += " --junitxml=.cl_junit.xml"
     return _run(["docker", "run", "--rm", "--network", "none", "--memory", "2g", "-v", f"{wt}:/repo", "-w", "/repo",
@@ -68,7 +74,8 @@ def docker_pytest(wt: Path, pythonpath: str, targets: str, junit: bool = True) -
 def gate_command(name: str) -> str:
     cfg = REPOS[name]
     return (f'docker run --rm --network none --memory 2g -v "{{wt}}:/repo" -w /repo {IMAGE} '
-            f'sh -c "PYTHONPATH={cfg["pythonpath"]} python -m pytest -q -x -p no:cacheprovider {cfg["suite"]}"')
+            f'sh -c "{INSTALL}PYTHONPATH={cfg["pythonpath"]} '
+            f'python -m pytest -q -x -p no:cacheprovider {cfg["suite"]}"')
 
 
 def _results(wt: Path) -> dict[str, bool]:
@@ -160,10 +167,10 @@ def load(name: str) -> list[dict]:
     return [json.loads(line) for line in open(paths(name)[1] / "instances.jsonl", encoding="utf-8")]
 
 
-def score(name: str, inst: dict, result_ref: str) -> dict:
+def score(name: str, inst: dict, result_ref: str, tag: str = "") -> dict:
     """Apply hidden tests on top of the result (test files reset to base first) and check F2P / P2P."""
     repo, out = paths(name)
-    wt = _worktree(repo, result_ref, out / f"wt-score-{inst['id']}")
+    wt = _worktree(repo, result_ref, out / f"wt-score-{tag}{inst['id']}")
     _git(wt, "checkout", "-q", inst["base"], "--", *[t for t in inst["tests"]
                                                      if _run(["git", "-C", str(wt), "cat-file", "-e",
                                                               f"{inst['base']}:{t}"])[0] == 0])
@@ -188,12 +195,13 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
     """mode: 'crew' or 'solo:<cli>:<model>'. Each instance runs in its own worktree at the instance base."""
     repo, out = paths(name)
     insts = load(name)[:limit]
+    tag = re.sub(r"[^a-z0-9]+", "-", mode.lower()) + "-"
     res_dir = out / "runs" / f"{mode.replace(':', '_')}-{time.strftime('%Y%m%d-%H%M')}"
     res_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for inst in insts:
-        base_wt = _worktree(repo, inst["base"], out / f"wt-base-{inst['id']}")
-        _git(base_wt, "checkout", "-q", "-B", f"solve/{inst['id']}")
+        base_wt = _worktree(repo, inst["base"], out / f"wt-base-{tag}{inst['id']}")
+        _git(base_wt, "checkout", "-q", "-B", f"solve/{tag}{inst['id']}")
         bf = res_dir / f"{inst['id']}.md"
         bf.write_text(brief(inst), encoding="utf-8")
         t0 = time.time()
@@ -204,7 +212,7 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
         else:
             _, cli, model = mode.split(":", 2)
             report = team.solo(base_wt, bf, gate_command(name), Choice(cli, model))  # type: ignore[arg-type]
-        sc = score(name, inst, report.branch) if report.diff_files else {"resolved": False, "f2p": "-", "p2p": "-"}
+        sc = score(name, inst, report.branch, tag) if report.diff_files else {"resolved": False, "f2p": "-", "p2p": "-"}
         row = {"id": inst["id"], "mode": mode, "seconds": round(time.time() - t0), **sc,
                "files": report.diff_files, "gold_src": inst["src"],
                "steps": [asdict(s) for s in report.steps]}

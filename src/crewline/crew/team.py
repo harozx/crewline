@@ -150,8 +150,9 @@ class Crew:
         code, out = _sh(self.gate_cmd.replace("{wt}", str(wt)), wt)   # {wt}: e.g. a Docker volume mount
         return code == 0, out[-3000:]
 
-    def _call(self, task: str, role: str, choice: Choice, prompt: str, cwd: Path, write: bool) -> adapters.Result:
-        res = adapters.run(choice, prompt, cwd, tier=role, purpose=f"crew.{role}", write=write)
+    def _call(self, task: str, role: str, choice: Choice, prompt: str, cwd: Path, write: bool,
+              timeout: int = 1200) -> adapters.Result:
+        res = adapters.run(choice, prompt, cwd, tier=role, purpose=f"crew.{role}", write=write, timeout=timeout)
         self.report.steps.append(Step(task, role, choice.cli, choice.model, res.ok, round(res.seconds, 1),
                                       "rate-limited" if res.rate_limited else ""))
         return res
@@ -201,8 +202,12 @@ class Crew:
             return
         self._seed(wt)
         (wt / "review.diff").write_text(diff, encoding="utf-8")
-        choice = self.pick("heavy", avoid_vendor=writer_vendor)[0]
-        verdict = _json(self._call(task.id, "review", choice, REVIEW_PROMPT, wt, False).text)
+        verdict: dict = {}
+        for choice in self.pick("heavy", avoid_vendor=writer_vendor)[:2]:   # a stuck reviewer must not stall the run
+            res = self._call(task.id, "review", choice, REVIEW_PROMPT, wt, False, timeout=300)
+            verdict = _json(res.text) if res.ok else {}
+            if verdict.get("verdict"):
+                break
         self._unseed(wt)
         if verdict.get("verdict") == "changes" and verdict.get("issues"):
             fix = Task(task.id, task.title, task.tier, task.files, instructions=task.instructions +
@@ -260,4 +265,5 @@ def solo(repo: Path, brief: Path, gate: str | None, choice: Choice) -> RunReport
     report = crew.run(review=False)
     report.mode = f"solo:{choice.cli}:{choice.model}"
     (crew.root / "report.json").write_text(json.dumps(asdict(report), indent=2), encoding="utf-8")
+    crew.cleanup()   # worktrees go, the result stays on its branch
     return report

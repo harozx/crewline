@@ -31,6 +31,11 @@ review (the last lines of the hunk are the ones being reviewed).{mem}
 List the concrete problems a senior Kafka reviewer would raise about the last lines of the hunk, most important
 first, at most 5. Reply with JSON only: {{"issues": ["..."]}}"""
 MEM_NOTE = "\nlessons.md has lessons the team learned from earlier reviews of this code; use them if relevant."
+ADD_PROMPT = """change.md has a file path and a diff hunk from a Kafka pull request (the last lines are under
+review). lessons.md has lessons the team learned from earlier reviews of this code. A reviewer already raised the
+issues in found.json. List ONLY additional problems in the last lines of the hunk that a lesson DIRECTLY implies
+(the lesson's exact situation is present in these lines). Usually there are none. At most 2.
+Reply with JSON only: {"issues": ["..."]}"""
 JUDGE_PROMPT = """cases.json has items, each with a human reviewer's comment and a list of issues an AI raised on
 the same code. For each item decide if ANY AI issue makes substantially the same point as the human comment.
 Reply with JSON only: {"verdicts": [{"id": <id>, "hit": true|false}]}"""
@@ -64,6 +69,18 @@ def review(c: dict, lessons: list[str]) -> list[str]:
     return _json(res.text).get("issues", []) if res.ok else []
 
 
+def additive(c: dict, lessons: list[str], found: list[str]) -> list[str]:
+    """Memory as a second, separate check: never replaces the plain review, only adds lesson-backed issues."""
+    if not lessons:
+        return []
+    with tempfile.TemporaryDirectory(prefix="cl_ad_") as d:
+        Path(d, "change.md").write_text(f"File: {c['path']}\n\n```diff\n{c['hunk']}\n```\n", encoding="utf-8")
+        Path(d, "lessons.md").write_text("\n".join(f"- {x}" for x in lessons), encoding="utf-8")
+        Path(d, "found.json").write_text(json.dumps(found), encoding="utf-8")
+        res = adapters.run(REVIEWER, ADD_PROMPT, d, tier="review", purpose="eval.memory.additive", timeout=600)
+    return (_json(res.text).get("issues", []) if res.ok else [])[:2]
+
+
 def judge(cases: list[dict]) -> dict[int, bool]:
     with tempfile.TemporaryDirectory(prefix="cl_jd_") as d:
         Path(d, "cases.json").write_text(json.dumps(cases, indent=1), encoding="utf-8")
@@ -76,12 +93,14 @@ def run(n: int = 60, workers: int = 6) -> dict:
 
     def one(c: dict) -> dict:
         lessons = [i.lesson for i in mem.recall([c["path"]], lambda s: True, before=c["created"], limit=8)]
-        return {"c": c, "lessons": len(lessons), "off": review(c, []), "on": review(c, lessons)}
+        off = review(c, [])
+        return {"c": c, "lessons": len(lessons), "off": off, "on": review(c, lessons),
+                "add": off + additive(c, lessons, off)}
 
     with ThreadPoolExecutor(workers) as ex:
         rows = list(ex.map(one, evs))
-    hits: dict[str, list[bool]] = {"off": [], "on": []}
-    for cond in ("off", "on"):
+    hits: dict[str, list[bool]] = {"off": [], "on": [], "add": []}
+    for cond in ("off", "on", "add"):
         cases = [{"id": i, "human": r["c"]["body"][:1200], "ai": r[cond]} for i, r in enumerate(rows)]
         verdicts: dict[int, bool] = {}
         for i in range(0, len(cases), 20):
@@ -91,6 +110,8 @@ def run(n: int = 60, workers: int = 6) -> dict:
               "date": time.strftime("%Y-%m-%d"), "reviewer": REVIEWER.model,
               "hit_rate_no_memory": round(statistics.mean(hits["off"]), 3) if rows else 0,
               "hit_rate_memory": round(statistics.mean(hits["on"]), 3) if rows else 0,
+              "hit_rate_memory_additive": round(statistics.mean(hits["add"]), 3) if rows else 0,
+              "mean_issues": {k: round(statistics.mean(len(r[k]) for r in rows), 2) for k in ("off", "on", "add")},
               "mean_lessons": round(statistics.mean(r["lessons"] for r in rows), 1) if rows else 0,
               "only_with_memory": sum(1 for a, b in zip(hits["off"], hits["on"], strict=True) if b and not a),
               "only_without_memory": sum(1 for a, b in zip(hits["off"], hits["on"], strict=True) if a and not b)}
