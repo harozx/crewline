@@ -28,6 +28,18 @@ def locate(limit: int = typer.Option(None, help="Only the first N tickets."),
     typer.echo(json.dumps(kafka.evaluate(limit, split, tag), indent=2))
 
 
+@app.command("brief")
+def brief(key: str, jira: str = typer.Option("https://issues.apache.org/jira", help="Jira base URL."),
+          out: Path = typer.Option(None, help="Output folder (default <data>/briefs/<KEY>)."),
+          vision: bool = typer.Option(True, help="Describe images with a light vision model.")) -> None:
+    """Build a ticket brief: markdown with images described in place, attachments downloaded."""
+    from crewline.config import data_dir
+    from crewline.reader import brief as b
+    from crewline.sources.jira import Jira
+    path = b.build(Jira(jira), key, out or data_dir() / "briefs" / key, vision=vision)
+    typer.echo(str(path))
+
+
 @crew_app.command("run")
 def crew_run(prompt: str, tier: str = typer.Option("light", help="light | medium | heavy"),
              cwd: Path = typer.Option(Path("."), help="Working directory for the agent."),

@@ -1,8 +1,12 @@
-import json, sys, statistics
+import json
+import statistics
+import sys
 from concurrent.futures import ThreadPoolExecutor
+
+from crewline.crew.models import Choice
 from crewline.evals import kafka
 from crewline.locate import baseline, rerank
-from crewline.crew.models import Choice
+
 W={"path":0.5,"history":3,"symbols":0.5,"mentions":3}
 split, n, cli, model = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
 rows=kafka.rankings(split)[:n]
@@ -14,7 +18,8 @@ def one(r):
     t=tickets[r["key"]]
     rr=rerank.rerank(f'# {t["summary"]}\n\n{t["description"]}', fused, idx, ch)
     return fused, rr, r["gold"]
-with ThreadPoolExecutor(6) as ex: out=list(ex.map(one, rows))
+with ThreadPoolExecutor(6) as ex:
+    out = list(ex.map(one, rows))
 fail=sum(1 for _,rr,_ in out if rr is None)
 for k in (1,5,10):
     a=statistics.mean(kafka.recall(f,g,k) for f,_,g in out)

@@ -25,3 +25,11 @@ def test_fuse_rewards_agreement():
 def test_test_files_excluded_from_gold():
     assert is_test("clients/src/test/java/FooTest.java")
     assert not is_test("clients/src/main/java/Foo.java")
+
+
+def test_wiki_images_with_spaces_and_code_kept_verbatim():
+    from crewline.reader.markup import wiki_to_md
+    md = wiki_to_md("h2. Bug\n!Screenshot 2026 at 1.59 PM.png|width=300!\n{code:java}a*b*c{code}")
+    assert "## Bug" in md
+    assert "![image: Screenshot 2026 at 1.59 PM.png](attachment:Screenshot 2026 at 1.59 PM.png)" in md
+    assert "```java\na*b*c\n```" in md
