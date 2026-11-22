@@ -55,8 +55,8 @@ def locate(project: str = typer.Option("kafka", help="kafka | flink | hbase | hi
 def eval_rerank(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive"),
                 split: str = typer.Option("eval", help="eval (report) | dev (tune)"),
                 limit: int = typer.Option(None, help="Only the first N tickets."),
-                cli: str = typer.Option("codex", help="Agent CLI: claude | codex | agy"),
-                model: str = typer.Option("gpt-5.6-luna", help="Model for the re-ranker."),
+                cli: str = typer.Option("agy", help="Agent CLI: claude | codex | agy"),
+                model: str = typer.Option("gemini-4-neon-medium", help="Model for the re-ranker (best on dev)."),
                 pool: int = typer.Option(60, help="Fused candidates passed to the re-ranker.")) -> None:
     """Score agent re-ranking of the fused candidates (recall@k)."""
     from crewline.evals import apache
