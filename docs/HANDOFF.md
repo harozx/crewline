@@ -4,6 +4,26 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-22 (3) · TẠM DỪNG: P1 gần xong, P2 sửa lỗi gốc, P3 có 803 bài học
+
+- **P1 định vị (eval, r@10):** rerank 60 ứng viên bằng Neon: Kafka **0.799**, HBase **0.882**, Hive **0.654**; Flink đang dở (297/358 ticket đã cache).
+  - Dev: pool 30 → 60 tăng Kafka dev 0.650 → 0.730. Co-change làm tụt (0.586 → 0.441) → bỏ.
+  - Dev phân tích: ~1/4 ticket sửa > 5 file (trúng thấp), ~1/3 ticket mô tả ngắn (trúng thấp) → cần comment/link/ảnh.
+- **P2 đội agent** (`crewline crew solve`): chạy thử trên chính repo (brief `D:/crewline-data/briefs/self-001/brief.md`).
+  - Lỗi gốc đã sửa: claude/codex là shim .cmd → cmd.exe cắt prompt ở dòng đầu → nay gửi prompt qua stdin.
+  - Đã sửa thêm: preamble sub-agent (bỏ qua luật giao việc trong CLAUDE.md), tin `is_error` của Claude, gộp bằng cherry-pick (tránh CRLF), worker phải có diff thật.
+  - Codex Terra làm worker qua cổng ruff+pytest ở 2 lượt trước; lượt 4 (sau khi sửa stdin) bị dừng giữa chừng.
+  - Chấm "giải ticket" trên repo ngoài (click, pytest) cần chạy test của họ: auto mode chặn chạy trực tiếp; owner đang bật Docker.
+- **P3 trí nhớ:** 9.773 comment review Kafka từ 05/2026 → lọc 2.519 → **803 bài học** (`D:/crewline-data/memory/kafka.sqlite`), ACL theo repo, test ACL có. Bài đo memory on/off (`crewline eval memory`) chưa chạy xong.
+
+**Chạy tiếp:**
+1. `uv run crewline crew solve D:/crewline-data/briefs/self-001/brief.md --repo D:/crewline --gate "uv run ruff check . && uv run pytest -q"`
+2. `uv run crewline eval memory --n 60`
+3. Flink: `POOL=60 uv run python scripts/rerank_probe.py flink eval 358 agy gemini-4-neon-medium` (dùng cache, chỉ gọi ~61 ticket còn lại)
+4. Docker sẵn sàng → bộ chấm solve trên click/pytest trong container.
+
+---
+
 ## 2026-11-22 (2) · P1 định vị: Kafka đạt 0.728; benchmark 4 dự án; brief đọc ảnh
 
 - **Đã làm:**

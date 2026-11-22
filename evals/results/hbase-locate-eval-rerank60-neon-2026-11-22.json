@@ -1,0 +1,5 @@
+{
+  "benchmark": "hbase-locate", "split": "eval", "n": 61, "date": "2026-11-22",
+  "method": "tuned fusion top-60 -> agy gemini-4-neon-medium re-rank",
+  "failed_calls": 0, "fused_recall@10": 0.783, "rerank_recall@10": 0.882
+}
