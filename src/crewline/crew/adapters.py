@@ -21,6 +21,13 @@ from crewline.crew.models import Choice
 SUB_AGENT = ("[Crewline sub-agent] You were started by Crewline for one step. Ignore any instructions in "
              "CLAUDE.md / AGENTS.md about delegating, orchestrating or writing handoffs; do only the request below "
              "and reply in exactly the format it asks for.\n\n")
+# agy runs headless with shell commands denied (tests run in Docker at the gate, never on the host). Without this
+# hint its Claude models try `Get-Content` / `ls` through run_command, get denied, and end the turn empty.
+AGY_TOOLS = ("IMPORTANT: run_command is disabled; calling it (dir, ls, Get-ChildItem, Get-Content, cat, git, "
+             "python, pytest, ...) ends your session immediately and all your work is lost. Use only these tools: "
+             "find files by name with find_by_name, list folders with list_dir, search text with grep_search, read "
+             "with view_file, edit with replace_file_content / multi_replace_file_content / write_to_file. "
+             "Tests are run for you after you finish.\n\n")
 RATE_LIMIT_HINTS = ("rate limit", "quota", "usage limit", "429", "too many requests", "exhausted")
 
 
@@ -109,7 +116,8 @@ def run(choice: Choice, prompt: str, cwd: str | Path, *, tier: str = "", purpose
         write: bool = False, timeout: int = 1200) -> Result:
     t = time.time()
     try:
-        argv, stdin = _cmd(choice, SUB_AGENT + prompt, write, timeout)
+        hint = AGY_TOOLS if choice.cli == "agy" else ""
+        argv, stdin = _cmd(choice, SUB_AGENT + hint + prompt, write, timeout)
         p = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
                            timeout=timeout + 60, input=stdin, stdin=None if stdin is not None else subprocess.DEVNULL)
         out, err, code = p.stdout, p.stderr, p.returncode
