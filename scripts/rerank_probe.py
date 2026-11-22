@@ -7,6 +7,7 @@ import json
 import os
 import statistics
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from crewline.crew.models import Choice
@@ -22,10 +23,25 @@ idx = json.load(open(next(apache.paths(project)[1].glob("symbols-*.json"))))
 choice = Choice(cli, model, "low" if cli == "codex" else None)
 
 
+CACHE = apache.paths(project)[1] / f"rerank-{model}-pool{POOL}.jsonl"
+done = {}
+if CACHE.exists():
+    for line in open(CACHE, encoding="utf-8"):
+        row = json.loads(line)
+        done[row["key"]] = row["ranked"]
+lock = threading.Lock()
+
+
 def one(r):
     fused = baseline.fuse(*[r[c] for c in W], weights=list(W.values()), k=POOL)
+    if r["key"] in done:
+        return fused, done[r["key"]], r["gold"]
     t = tickets[r["key"]]
-    return fused, rerank.rerank(f'# {t["summary"]}\n\n{t["description"]}', fused, idx, choice), r["gold"]
+    rr = rerank.rerank(f'# {t["summary"]}\n\n{t["description"]}', fused, idx, choice)
+    if rr:
+        with lock, open(CACHE, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"key": r["key"], "ranked": rr}) + "\n")
+    return fused, rr, r["gold"]
 
 
 with ThreadPoolExecutor(6) as ex:
