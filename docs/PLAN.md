@@ -13,6 +13,11 @@ review chéo**, chờ người duyệt.
 | Chi phí | token + giây mỗi ticket, theo tầng | giảm khi dùng phân tầng |
 | Trí nhớ | lỗi reviewer từng bắt mà agent lặp lại | có trí nhớ < không có |
 
+## Định vị (ADR-0002)
+Không đánh vào chỗ đã có người lớn chiếm (Copilot/Rovo cho Jira Cloud, các bảng điều phối agent).
+Crewline là **lớp ngữ cảnh + định vị + trí nhớ có đo đạc**, cắm vào agent nào cũng được qua MCP, ưu tiên
+**Jira Data Center / chạy tại chỗ**, đọc cả ảnh/đính kèm, và công bố **benchmark định vị trên Jira** đầu tiên.
+
 ## Nguyên tắc
 1. Đo trước, xây sau: mỗi giai đoạn có mốc so sánh và điều kiện qua.
 2. Việc nhẹ cho model nhẹ, việc nặng cho model thinking (bảng tầng ở `AGENTS.md`).
@@ -44,6 +49,7 @@ Dữ liệu và cache ở `D:/crewline-data`, không vào repo.
 - **Qua khi:** dataset ≥ 150 ticket, baseline có số, chạy lại bằng một lệnh.
 
 ### P1 · Đọc ticket + định vị (tuần 2–3)
+- Mở rộng benchmark sang 3–5 dự án Apache (Flink, Cassandra, HBase, Hadoop...) để số đo không phụ thuộc một repo.
 - Reader: ADF và wiki markup → markdown, tải ảnh/đính kèm có xác thực, docx/xlsx/pdf → markdown, giữ chỗ ảnh trong văn bản.
 - Định vị v1: parse stack trace/log, bản đồ lịch sử (ticket tương tự → file), symbol khớp từ khóa, embedding (tầng light).
 - Re-rank top 30 bằng model tầng medium/heavy đọc brief + đoạn code.
