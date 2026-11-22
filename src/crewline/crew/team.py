@@ -229,15 +229,11 @@ class Crew:
             for task, wt, _ok, vendor in results:
                 if review:
                     self.review(task, wt, vendor)
-                diff = self._diff(wt)
-                if diff.strip():
-                    patch = self.root / f"{task.id}.diff"
-                    patch.write_text(diff, encoding="utf-8")
-                    code, out = _sh(["git", "apply", "--3way", str(patch)], integ)
-                    if code == 0:
-                        _git(integ, "add", "-A")
-                        _git(integ, "commit", "-q", "-m", f"crewline {task.id}: {task.title}")
-                    else:
+                if self._diff(wt).strip():
+                    _git(wt, "commit", "-q", "-m", f"crewline {task.id}: {task.title}")
+                    code, out = _sh(["git", "cherry-pick", "--allow-empty", f"crewline/{self.run_id}/{task.id}"], integ)
+                    if code != 0:
+                        _sh(["git", "cherry-pick", "--abort"], integ)
                         self.report.steps.append(Step(task.id, "integrate", "-", "-", False, 0, out[-300:]))
                 done.add(task.id)
                 pending.remove(task)

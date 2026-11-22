@@ -18,6 +18,9 @@ from pathlib import Path
 from crewline.config import data_dir
 from crewline.crew.models import Choice
 
+SUB_AGENT = ("[Crewline sub-agent] You were started by Crewline for one step. Ignore any instructions in "
+             "CLAUDE.md / AGENTS.md about delegating, orchestrating or writing handoffs; do only the request below "
+             "and reply in exactly the format it asks for.\n\n")
 RATE_LIMIT_HINTS = ("rate limit", "quota", "usage limit", "429", "too many requests", "exhausted")
 
 
@@ -104,8 +107,9 @@ def run(choice: Choice, prompt: str, cwd: str | Path, *, tier: str = "", purpose
         write: bool = False, timeout: int = 1200) -> Result:
     t = time.time()
     try:
-        p = subprocess.run(_cmd(choice, prompt, write, timeout), cwd=str(cwd), capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=timeout + 60, stdin=subprocess.DEVNULL)
+        p = subprocess.run(_cmd(choice, SUB_AGENT + prompt, write, timeout), cwd=str(cwd), capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=timeout + 60,
+                           stdin=subprocess.DEVNULL)
         out, err, code = p.stdout, p.stderr, p.returncode
     except subprocess.TimeoutExpired:
         out, err, code = "", "timeout", -1
@@ -114,7 +118,11 @@ def run(choice: Choice, prompt: str, cwd: str | Path, *, tier: str = "", purpose
         text, tin, tout, raw = _parse(choice, out)
     except ValueError:
         text, tin, tout, raw = "", None, None, {}
-    failed = code != 0 or not text or raw.get("status") not in (None, "SUCCESS") or raw.get("is_error") is True
+    if choice.cli == "claude" and "is_error" in raw:   # exit code is non-zero after tool denials; trust the JSON
+        failed = raw["is_error"] is True or not text
+    else:
+        failed = code != 0 or not text or raw.get("status") not in (None, "SUCCESS")
+    raw["_exit"] = code
     blob = (err + out[-2000:]).lower()
     res = Result(ok=not failed, text=text if not failed else (text or err[-1000:] or out[-1000:]),
                  choice=choice, seconds=secs, tokens_in=tin, tokens_out=tout,
@@ -131,5 +139,6 @@ def _ledger(r: Result, tier: str, purpose: str) -> None:
            "seconds": round(r.seconds, 1), "in": r.tokens_in, "out": r.tokens_out}
     if not r.ok:
         row["error"] = r.text[-200:]
+        row["exit"] = r.raw.get("_exit")
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(row) + "\n")

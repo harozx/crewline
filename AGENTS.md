@@ -6,6 +6,10 @@ agents (Claude Code, Codex, agy) as a crew with one lead.
 
 Read `docs/HANDOFF.md` (newest entry first) before working, and `docs/PLAN.md` for the roadmap.
 
+## Sub-agents
+A prompt that starts with `[Crewline sub-agent]` is one step of a crew run: skip delegation, handoff and
+ADR rules and answer exactly what the prompt asks.
+
 ## Decision rights
 - The lead agent (Claude Code in this repo) decides design, libraries, refactors and phase order alone.
 - Escalate to the owner only for: spending money (paid APIs, services), anything that writes to a company
