@@ -18,16 +18,21 @@ ADR rules and answer exactly what the prompt asks.
 - Record every non-obvious decision as an ADR in `docs/adr/` (template: `docs/templates/adr.md`).
 
 ## Model tiers (route work, don't guess)
-| Tier | Use for | Default models |
+| Tier | Use for | Default route (agy) |
 |---|---|---|
-| `light` | summarise, convert, classify, extract, format checks | agy `gemini-3.8-flash-low`, codex `gpt-5.6-luna` |
-| `medium` | code to a clear spec, tests, fixing lint/test failures | codex `gpt-5.6-terra`, agy `claude-sonnet-5-5-medium` |
-| `heavy` | planning, hard localisation, cross-review, final calls | Claude Code (Opus), agy `gemini-4-neon-high`, agy `claude-opus-5-5-high` |
+| `light` | summarise, convert, classify, extract, format checks | `gemini-3.8-flash-low` |
+| `medium` | code to a clear spec, tests, fixing lint/test failures | `claude-sonnet-5-5-medium`, `gemini-4-neon-medium` |
+| `heavy` | planning, hard localisation, cross-review, final calls | `claude-opus-5-5-high`, `gemini-4-neon-high` |
 
+- Only enabled CLIs are used: `CREWLINE_CLIS` or `<data>/config.json` `{"clis": [...]}`; default `agy` only.
+  Claude Code and Codex CLIs spend the user's personal quota: enable them only for users who linked their own
+  account. (2026-11-22: benchmark runs exhausted Codex for a month and hit Claude's 5-hour limit.)
 - Start at the lowest tier that can do the job; escalate after two failed gate checks.
-- Writer and reviewer come from different vendors.
+- Writer and reviewer come from different vendors (Claude vs Gemini both reachable through agy).
+- A CLI that hits a usage limit is blocked in `<data>/ledger/quota_blocked.json` until it resets.
 - The routing table lives in `src/crewline/crew/models.py`; change it there from eval results, not by feel.
-- Paid APIs are off by default. Subscriptions (Claude Code, agy, Codex/ChatGPT) go first.
+- Paid APIs are off by default.
+- Heavy evals run one at a time (16 GB machine; parallel runs got reaped for memory).
 
 ## Code
 - Python 3.11, `uv`. Run `uv run ruff check . && uv run pytest` before every commit.

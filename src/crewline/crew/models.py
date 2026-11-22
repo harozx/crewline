@@ -26,6 +26,8 @@ class Choice:
 
 
 # First entry is preferred; later entries are fallbacks when a CLI is rate-limited or fails.
+# agy first everywhere: one subscription reaches both Gemini and Claude, so writer and reviewer can still come
+# from different vendors. claude / codex are only used when the user enabled them (their own linked account).
 ROUTES: dict[Tier, list[Choice]] = {
     "light": [
         Choice("agy", "gemini-3.8-flash-low"),
@@ -33,17 +35,34 @@ ROUTES: dict[Tier, list[Choice]] = {
         Choice("claude", "haiku"),
     ],
     "medium": [
-        Choice("codex", "gpt-5.6-terra", "medium"),
         Choice("agy", "claude-sonnet-5-5-medium"),
+        Choice("agy", "gemini-4-neon-medium"),
+        Choice("codex", "gpt-5.6-terra", "medium"),
         Choice("claude", "sonnet"),
     ],
     "heavy": [
-        Choice("claude", "opus"),
-        Choice("agy", "gemini-4-neon-high"),
         Choice("agy", "claude-opus-5-5-high"),
+        Choice("agy", "gemini-4-neon-high"),
+        Choice("claude", "opus"),
         Choice("codex", "gpt-5.6-terra", "high"),
     ],
 }
+DEFAULT_CLIS = ("agy",)
+
+
+def enabled_clis() -> set[str]:
+    """CLIs this install may drive: env CREWLINE_CLIS="agy,claude,codex" or <data>/config.json {"clis": [...]}.
+    Default agy only - other CLIs spend the user's own personal quota and must be opted into."""
+    import json
+    import os
+    env = os.environ.get("CREWLINE_CLIS")
+    if env:
+        return {c.strip() for c in env.split(",") if c.strip()}
+    from crewline.config import data_dir
+    try:
+        return set(json.loads((data_dir() / "config.json").read_text()).get("clis", DEFAULT_CLIS))
+    except (OSError, ValueError):
+        return set(DEFAULT_CLIS)
 
 ESCALATE: dict[Tier, Tier | None] = {"light": "medium", "medium": "heavy", "heavy": None}
 
@@ -84,6 +103,6 @@ def block_quota(cli: Cli, hours: float = QUOTA_BLOCK_HOURS) -> None:
 def pick(tier: Tier, avoid_vendor: str | None = None, blocked: set[Cli] = frozenset()) -> list[Choice]:
     """Choices for a tier in preference order, skipping blocked or quota-exhausted CLIs and (for reviewers)
     the writer's vendor."""
-    blocked = set(blocked) | quota_blocked()
+    blocked = set(blocked) | quota_blocked() | ({"claude", "codex", "agy"} - enabled_clis())
     out = [c for c in ROUTES[tier] if c.cli not in blocked and c.vendor != avoid_vendor]
     return out or [c for c in ROUTES[tier] if c.cli not in blocked]

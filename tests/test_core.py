@@ -56,8 +56,19 @@ def test_shim_clis_get_multiline_prompt_on_stdin():
 
 def test_quota_block_removes_cli_from_routing(tmp_path, monkeypatch):
     monkeypatch.setenv("CREWLINE_DATA", str(tmp_path))
+    monkeypatch.setenv("CREWLINE_CLIS", "agy,claude,codex")
     from crewline.crew.models import block_quota, pick
     block_quota("codex")
     assert all(c.cli != "codex" for c in pick("medium"))
     block_quota("claude", hours=-1)   # an expired block does not count
     assert any(c.cli == "claude" for c in pick("heavy"))
+
+
+def test_only_enabled_clis_are_routed(tmp_path, monkeypatch):
+    monkeypatch.setenv("CREWLINE_DATA", str(tmp_path))
+    monkeypatch.delenv("CREWLINE_CLIS", raising=False)
+    from crewline.crew.models import pick
+    for tier in ("light", "medium", "heavy"):
+        assert {c.cli for c in pick(tier)} == {"agy"}
+    # writer Claude-via-agy still gets a reviewer from another vendor
+    assert all(c.vendor != "anthropic" for c in pick("heavy", avoid_vendor="anthropic"))
