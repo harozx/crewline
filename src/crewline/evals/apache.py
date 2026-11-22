@@ -146,3 +146,58 @@ def evaluate(project: str, limit: int | None = None, split: str = "eval", tag: s
         res_dir.mkdir(parents=True, exist_ok=True)
         (res_dir / f"{project}-locate-{split}-{tag}-{result['date']}.json").write_text(json.dumps(result, indent=2))
     return result
+
+
+def rerank_eval(project: str, split: str = "eval", n: int | None = None, cli: str = "codex",
+                model: str = "gpt-5.6-luna", pool: int = 60, workers: int = 6) -> dict:
+    """Score agent re-ranking of fused candidates."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    from crewline.crew.models import Choice
+    from crewline.locate import rerank as rerank_mod
+
+    W = FUSIONS["tuned"]
+    rows = rankings(project, split)
+    if n:
+        rows = rows[:n]
+    tickets = {t["key"]: t for t in load(project)}
+    data = paths(project)[1]
+    idx = json.loads(next(data.glob("symbols-*.json")).read_text(encoding="utf-8"))
+    choice = Choice(cli, model, "low" if cli == "codex" else None)
+    cache = data / f"rerank-{model}-pool{pool}.jsonl"
+    done = {}
+    if cache.exists():
+        for line in cache.read_text(encoding="utf-8").splitlines():
+            if line:
+                row = json.loads(line)
+                done[row["key"]] = row["ranked"]
+    lock = threading.Lock()
+
+    def one(r: dict) -> tuple[list[str], list[str] | None, list[str]]:
+        fused = baseline.fuse(*[r[c] for c in W], weights=list(W.values()), k=pool)
+        if r["key"] in done:
+            return fused, done[r["key"]], r["gold"]
+        t = tickets[r["key"]]
+        rr = rerank_mod.rerank(f'# {t["summary"]}\n\n{t["description"]}', fused, idx, choice)
+        if rr:
+            with lock, open(cache, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"key": r["key"], "ranked": rr}) + "\n")
+        return fused, rr, r["gold"]
+
+    with ThreadPoolExecutor(workers) as ex:
+        out = list(ex.map(one, rows))
+    fail = sum(1 for _, ranked, _ in out if ranked is None)
+    if not out:
+        scores = {f"recall@{k}": 0 for k in (1, 5, 10)}
+        return {"project": project, "split": split, "n": 0, "cli": cli, "model": model, "pool": pool,
+                "failed": fail, "fused": scores, "reranked": scores.copy()}
+    return {
+        "project": project, "split": split, "n": len(out), "cli": cli, "model": model, "pool": pool,
+        "failed": fail,
+        "fused": {f"recall@{k}": round(statistics.mean(recall(fused, gold, k) for fused, _, gold in out), 3)
+                  for k in (1, 5, 10)},
+        "reranked": {f"recall@{k}": round(statistics.mean(recall(ranked or fused, gold, k)
+                                                              for fused, ranked, gold in out), 3)
+                     for k in (1, 5, 10)},
+    }
