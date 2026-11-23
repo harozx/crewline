@@ -32,7 +32,9 @@ Rules: use ONE task unless the work splits into independent parts touching diffe
 tasks. Tier: light = mechanical edit, medium = normal code change with clear spec, heavy = tricky logic.
 Do not plan test-only tasks unless the ticket asks for tests."""
 
-WORK_PROMPT = """You are a worker on a team. Read brief.md for the ticket. Your task:
+WORK_PROMPT = """You are a worker on a team. Read brief.md for the ticket. If codemap.md exists, it maps the
+repository (what each directory does, how to test): use it to go straight to the right files instead of exploring.
+Your task:
 {title}
 {instructions}
 Only change these files unless strictly necessary: {files}
@@ -63,6 +65,8 @@ class Step:
     ok: bool
     seconds: float
     note: str = ""
+    tokens_in: int | None = None
+    tokens_out: int | None = None
 
 
 @dataclass
@@ -109,9 +113,13 @@ def _json(text: str) -> dict:
 
 class Crew:
     def __init__(self, repo: Path, brief: Path, gate: str | None, locate_md: str = "", max_tasks: int = 4,
-                 lead: Choice | None = None, picker=pick):
+                 lead: Choice | None = None, picker=pick, codemap: bool = False):
         self.repo = repo.resolve()
         self.brief_text = brief.read_text(encoding="utf-8")
+        self.codemap_text = ""
+        if codemap:
+            from crewline.memory.codemap import build
+            self.codemap_text = build(self.repo).read_text(encoding="utf-8")
         self.locate_md = locate_md
         self.gate_cmd = gate
         self.max_tasks = max_tasks
@@ -128,9 +136,11 @@ class Crew:
         (wt / "brief.md").write_text(self.brief_text, encoding="utf-8")
         if self.locate_md:
             (wt / "locate.md").write_text(self.locate_md, encoding="utf-8")
+        if self.codemap_text:
+            (wt / "codemap.md").write_text(self.codemap_text, encoding="utf-8")
 
     def _unseed(self, wt: Path) -> None:
-        for name in ("brief.md", "locate.md", "review.diff"):
+        for name in ("brief.md", "locate.md", "review.diff", "codemap.md"):
             (wt / name).unlink(missing_ok=True)
 
     def _worktree(self, name: str, start: str) -> Path:
@@ -154,7 +164,7 @@ class Crew:
               timeout: int = 1200) -> adapters.Result:
         res = adapters.run(choice, prompt, cwd, tier=role, purpose=f"crew.{role}", write=write, timeout=timeout)
         self.report.steps.append(Step(task, role, choice.cli, choice.model, res.ok, round(res.seconds, 1),
-                                      "rate-limited" if res.rate_limited else ""))
+                                      "rate-limited" if res.rate_limited else "", res.tokens_in, res.tokens_out))
         return res
 
     # -- phases ----------------------------------------------------------------------------------------------
@@ -263,9 +273,10 @@ class Crew:
         shutil.rmtree(self.root / "wt", ignore_errors=True)
 
 
-def solo(repo: Path, brief: Path, gate: str | None, choice: Choice) -> RunReport:
+def solo(repo: Path, brief: Path, gate: str | None, choice: Choice, codemap: bool = False) -> RunReport:
     """Baseline: one agent, one attempt + one retry with gate feedback, no plan, no review."""
-    crew = Crew(repo, brief, gate, picker=lambda tier, avoid_vendor=None, blocked=frozenset(): [choice])
+    crew = Crew(repo, brief, gate, picker=lambda tier, avoid_vendor=None, blocked=frozenset(): [choice],
+                codemap=codemap)
     task = Task("T1", "Implement the ticket", "heavy", instructions="Implement what brief.md asks.")
     crew.plan = lambda: [task]  # type: ignore[method-assign]
     report = crew.run(review=False)

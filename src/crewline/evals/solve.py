@@ -211,13 +211,16 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
         bf = res_dir / f"{inst['id']}.md"
         bf.write_text(brief(inst), encoding="utf-8")
         t0 = time.time()
-        if mode == "crew":
-            crew = team.Crew(base_wt, bf, gate_command(name))
+        base_mode, _, extra = mode.partition("+")   # e.g. "solo:agy:gemini-4-neon-high+map"
+        use_map = extra == "map"
+        if base_mode == "crew":
+            crew = team.Crew(base_wt, bf, gate_command(name), codemap=use_map)
             report = crew.run()
             crew.cleanup()
         else:
-            _, cli, model = mode.split(":", 2)
-            report = team.solo(base_wt, bf, gate_command(name), Choice(cli, model))  # type: ignore[arg-type]
+            _, cli, model = base_mode.split(":", 2)
+            report = team.solo(base_wt, bf, gate_command(name), Choice(cli, model),  # type: ignore[arg-type]
+                               codemap=use_map)
         sc = score(name, inst, report.branch, tag) if report.diff_files else {"resolved": False, "f2p": "-", "p2p": "-"}
         row = {"id": inst["id"], "mode": mode, "seconds": round(time.time() - t0), **sc,
                "files": report.diff_files, "gold_src": inst["src"],
@@ -226,6 +229,8 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
         (res_dir / "rows.jsonl").open("a", encoding="utf-8").write(json.dumps(row) + "\n")
         _run(["git", "-C", str(repo), "worktree", "remove", "--force", str(base_wt)])
     resolved = sum(r["resolved"] for r in rows)
+    tokens = [sum(s.get("tokens_in") or 0 for s in r["steps"]) for r in rows]
     return {"repo": name, "mode": mode, "n": len(rows), "resolved": resolved,
             "rate": round(resolved / len(rows), 3) if rows else 0,
-            "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows)) if rows else 0}
+            "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows)) if rows else 0,
+            "mean_tokens_in": round(sum(tokens) / len(tokens)) if any(tokens) else None}
