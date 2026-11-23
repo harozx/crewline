@@ -65,6 +65,22 @@ routing hundreds of tickets before any agent runs. On a hard ticket in a large r
 
 Routing a ticket to the right team or module before any agent runs is where a zero-token ranking pays off.
 
+**Code the models have not seen** (6 GitHub repos created after June 2026; issue text as ticket, files the
+linked PR modified as gold; calibrated on older issues, scored on newer ones):
+
+| Repo | Code files | Test issues | locate, no model | + re-rank (40 issues) |
+|---|---|---|---|---|
+| laya (Python) | 420 | 35 | 0.836 | |
+| cleanyourtv (Python) | 454 | 14 | 0.821 | |
+| openwiki (TS) | 229 | 48 | 0.791 | |
+| OpenMausBot (TS) | 3663 | 143 | 0.416 | 0.357 → **0.583** |
+| opencodex (TS) | 3516 | 62 | 0.311 | 0.314 → **0.441** |
+| photocraft (Rust) | 2045 | 153 | 0.081 | 0.053 → 0.063 |
+
+It depends on the repo, which is why `crewline calibrate` reports these numbers on your own history before you
+rely on it. Re-ranking gains hold on unseen code. Where tickets describe UI behaviour and code uses unrelated
+names (photocraft), lexical signals miss and an agent or semantic search is needed.
+
 **Per-repo calibration** (`crewline calibrate`): which signals help depends on the codebase. Kafka favours
 symbols (recall@10 0.620 → 0.642 after calibration); sqlfluff favours paths and drops two signals
 (0.702 → 0.763).

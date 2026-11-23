@@ -1,0 +1,45 @@
+{
+  "repo": "D:\\crewline-data\\repos\\opencodex",
+  "source": "github",
+  "date": "2026-11-24",
+  "tickets": 153,
+  "dev": 91,
+  "test": 62,
+  "optimistic": false,
+  "signals_alone_test": {
+    "path": 0.173,
+    "history": 0.104,
+    "symbols": 0.294,
+    "mentions": 0.127
+  },
+  "default_weights_test": {
+    "recall@1": 0.083,
+    "recall@5": 0.192,
+    "recall@10": 0.227
+  },
+  "calibrated_weights": {
+    "path": 0,
+    "history": 0.5,
+    "symbols": 2,
+    "mentions": 0.5
+  },
+  "calibrated_test": {
+    "recall@1": 0.116,
+    "recall@5": 0.242,
+    "recall@10": 0.311
+  },
+  "disabled": [
+    "path"
+  ],
+  "triage_test": {
+    "modules": 6,
+    "top1": 1,
+    "top3": 1,
+    "majority_top1": 0.968
+  },
+  "rerank_test": {
+    "n": 40,
+    "fused_recall@10": 0.314,
+    "rerank_recall@10": 0.441
+  }
+}

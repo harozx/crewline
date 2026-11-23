@@ -1,0 +1,38 @@
+{
+  "repo": "D:\\crewline-data\\repos\\laya",
+  "source": "github",
+  "date": "2026-11-24",
+  "tickets": 87,
+  "dev": 52,
+  "test": 35,
+  "optimistic": false,
+  "signals_alone_test": {
+    "path": 0.529,
+    "history": 0.571,
+    "symbols": 0.779,
+    "mentions": 0.271
+  },
+  "default_weights_test": {
+    "recall@1": 0.538,
+    "recall@5": 0.736,
+    "recall@10": 0.776
+  },
+  "calibrated_weights": {
+    "path": 3,
+    "history": 0.5,
+    "symbols": 3,
+    "mentions": 3
+  },
+  "calibrated_test": {
+    "recall@1": 0.481,
+    "recall@5": 0.79,
+    "recall@10": 0.836
+  },
+  "disabled": [],
+  "triage_test": {
+    "modules": 2,
+    "top1": 0.771,
+    "top3": 0.943,
+    "majority_top1": 0.743
+  }
+}

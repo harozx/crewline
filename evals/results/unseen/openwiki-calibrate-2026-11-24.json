@@ -1,0 +1,40 @@
+{
+  "repo": "D:\\crewline-data\\repos\\openwiki",
+  "source": "github",
+  "date": "2026-11-24",
+  "tickets": 119,
+  "dev": 71,
+  "test": 48,
+  "optimistic": false,
+  "signals_alone_test": {
+    "path": 0.601,
+    "history": 0.613,
+    "symbols": 0.738,
+    "mentions": 0.413
+  },
+  "default_weights_test": {
+    "recall@1": 0.452,
+    "recall@5": 0.745,
+    "recall@10": 0.785
+  },
+  "calibrated_weights": {
+    "path": 0.5,
+    "history": 1,
+    "symbols": 0,
+    "mentions": 1
+  },
+  "calibrated_test": {
+    "recall@1": 0.458,
+    "recall@5": 0.703,
+    "recall@10": 0.791
+  },
+  "disabled": [
+    "symbols"
+  ],
+  "triage_test": {
+    "modules": 1,
+    "top1": 1,
+    "top3": 1,
+    "majority_top1": 0.979
+  }
+}

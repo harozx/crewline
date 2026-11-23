@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (15) · Dữ liệu code chưa thấy: 6 repo GitHub tạo sau 06/2026
+
+- `calibrate --source github` (0 token): laya 0.836, cleanyourtv 0.821 (n=14), openwiki 0.791, OpenMausBot 0.416, opencodex 0.311, photocraft 0.081.
+- Rerank (40 issue, agy Neon): OpenMausBot 0.357→0.583, opencodex 0.314→0.441, photocraft 0.053→0.063 → **rerank vẫn có lợi trên code chưa thấy**; photocraft hỏng ở bước ứng viên (ticket UI vs tên code kỹ thuật, liên kết PR–issue lỏng).
+- Triage module có ý nghĩa khi repo nhiều module (OpenMausBot 0.91 vs majority 0.76); repo 1–3 module thì majority đã cao.
+- Thêm: symbol TS/Go/Rust, nhận diện test đa ngôn ngữ (`latest.ts` là code, `*_tests.rs` là test), cache ticket trong calibrate, `--rerank-n`.
+- Kết quả: `evals/results/unseen/`.
+
+**Bước kế:** tìm theo nghĩa (embedding chạy local hoặc qua agy) làm tín hiệu thứ 5 cho repo kiểu photocraft; hiệu chỉnh tự bật/tắt.
+
+---
+
 ## 2026-11-24 (14) · Triage theo module: chỗ `locate` mạnh thật
 
 - Flink agent + gợi ý: 0.821 (agent tự mò 0.835) nhưng −20% token, −24% thời gian. Gợi ý = rẻ hơn, không trúng hơn.

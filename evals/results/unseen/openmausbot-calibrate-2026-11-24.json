@@ -1,0 +1,45 @@
+{
+  "repo": "D:\\crewline-data\\repos\\openmausbot",
+  "source": "github",
+  "date": "2026-11-24",
+  "tickets": 356,
+  "dev": 213,
+  "test": 143,
+  "optimistic": false,
+  "signals_alone_test": {
+    "path": 0.242,
+    "history": 0.253,
+    "symbols": 0.385,
+    "mentions": 0.188
+  },
+  "default_weights_test": {
+    "recall@1": 0.178,
+    "recall@5": 0.312,
+    "recall@10": 0.401
+  },
+  "calibrated_weights": {
+    "path": 0,
+    "history": 1,
+    "symbols": 3,
+    "mentions": 0.5
+  },
+  "calibrated_test": {
+    "recall@1": 0.142,
+    "recall@5": 0.342,
+    "recall@10": 0.416
+  },
+  "disabled": [
+    "path"
+  ],
+  "triage_test": {
+    "modules": 10,
+    "top1": 0.902,
+    "top3": 0.979,
+    "majority_top1": 0.762
+  },
+  "rerank_test": {
+    "n": 40,
+    "fused_recall@10": 0.357,
+    "rerank_recall@10": 0.583
+  }
+}
