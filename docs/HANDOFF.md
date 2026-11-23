@@ -4,6 +4,23 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (13) · Agent tự mò rất giỏi; giá trị của `locate` là rẻ + nhanh, không phải trúng hơn
+
+| | Kafka 60 r@10 | token / s | Flink 40 r@10 | token / s |
+|---|---|---|---|---|
+| Agent Neon Medium tự mò | 0.804 | 66k / 63 | **0.835** | 98k / 107 |
+| locate gộp (0 model) | 0.686 | 0 / 0.5 | 0.536 | 0 / 0.5 |
+| locate + rerank | **0.811** | ~18k / ~40 | 0.680 | ~18k / ~40 |
+| agent + gợi ý locate | 0.798 | 56k / 57 | (đang chạy) | |
+
+- Flink: agent thắng 13 ticket, locate 5. Gợi ý locate không làm agent trúng hơn (Kafka), chỉ bớt ~15% token.
+- **Định vị phải sửa:** không nói "locate trúng hơn agent". Nói: cùng/gần độ trúng với ít token hơn 3.6–5x, và 0 token cho phần gộp → triage/định tuyến/ước lượng hàng loạt ticket; để agent tự tìm khi sửa một ticket khó.
+- `scripts/overnight.ps1` chạy tốt trong cửa sổ riêng (không bị Claude Code dừng); log PowerShell 5.1 ghi UTF-16 nên grep không đọc được → đọc qua cache.
+
+**Bước kế:** chờ Flink hints; cập nhật README + ADR-0003 (định vị sau đo đạc).
+
+---
+
 ## 2026-11-24 (12) · Tạm dừng; chạy đêm bằng `scripts/overnight.ps1`
 
 - Đang dở: Kafka agent + gợi ý locate 19/60; Flink agent tự mò 1/40. Cả hai tự tiếp tục.

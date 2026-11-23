@@ -1,0 +1,13 @@
+{
+  "benchmark": "kafka-agent-with-locate-hints",
+  "date": "2026-11-24",
+  "n": 60,
+  "agent": "gemini-4-neon-medium",
+  "agent_with_hints": {
+    "recall@10": 0.798,
+    "ok": 60,
+    "median_tokens_in": 55640,
+    "median_seconds": 57
+  },
+  "locate_alone_recall@10": 0.811
+}

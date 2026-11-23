@@ -1,0 +1,22 @@
+{
+  "benchmark": "flink-agent-vs-locate",
+  "date": "2026-11-24",
+  "n": 40,
+  "agent": "gemini-4-neon-medium",
+  "agent_explore": {
+    "recall@10": 0.835,
+    "ok": 40,
+    "median_tokens_in": 97956,
+    "median_seconds": 107
+  },
+  "locate_fused": {
+    "recall@10": 0.536,
+    "tokens_in": 0
+  },
+  "locate_rerank": {
+    "recall@10": 0.68,
+    "rerank_cached": 40
+  },
+  "locate_rerank_wins": 5,
+  "agent_wins": 13
+}
