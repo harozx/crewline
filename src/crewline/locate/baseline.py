@@ -15,7 +15,7 @@ from rank_bm25 import BM25Okapi
 from crewline.locate.text import tokens
 
 CODE_EXT = (".java", ".scala", ".py", ".kt", ".go", ".ts", ".tsx", ".js", ".jsx", ".rs")
-TEST_NAME = re.compile(r"(^test|_test\.\w+$|\.test\.\w+$|\.spec\.\w+$|Tests?\.\w+$)")
+TEST_NAME = re.compile(r"(^test|_tests?\.\w+$|\.test\.\w+$|\.spec\.\w+$|Tests?\.\w+$)")
 
 
 def is_code(path: str) -> bool:

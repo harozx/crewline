@@ -145,16 +145,25 @@ def _triage(rows: list[dict], weights: dict[str, float]) -> dict:
 
 
 def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: str | None = None,
-        slug: str | None = None, max_tickets: int = 400) -> dict:
+        slug: str | None = None, max_tickets: int = 400, rerank_n: int = 0) -> dict:
+    """rerank_n > 0 also measures agent re-ranking (agy) on the first N test tickets: costs model calls."""
     repo = repo.resolve()
     out_dir = data_dir() / "index" / repo.name
     out_dir.mkdir(parents=True, exist_ok=True)
-    if source == "keys":
-        tickets = tickets_from_keys(repo, since, jira_url)
-    elif source == "github":
-        tickets = tickets_from_github(repo, slug or "", since, max_tickets)
+    tcache = out_dir / f"tickets-{source}-{since}.json"   # GitHub/Jira fetches are slow; reuse them
+    if tcache.exists():
+        tickets = json.loads(tcache.read_text(encoding="utf-8"))
     else:
-        tickets = tickets_from_commits(repo, since)
+        if source == "keys":
+            tickets = tickets_from_keys(repo, since, jira_url)
+        elif source == "github":
+            tickets = tickets_from_github(repo, slug or "", since, max_tickets)
+        else:
+            tickets = tickets_from_commits(repo, since)
+        tcache.write_text(json.dumps(tickets), encoding="utf-8")
+    for t in tickets:   # re-apply the current code/test filter to cached gold sets
+        t["files"] = [f for f in t["files"] if baseline.is_code(f)]
+    tickets = [t for t in tickets if t["files"]]
     tickets = sorted(tickets, key=lambda t: t["fixed_at"])[-max_tickets:]
     if len(tickets) < 30:
         return {"repo": str(repo), "source": source, "tickets": len(tickets),
@@ -170,7 +179,7 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         alive_list = trees[t["parent"]]
         alive = set(alive_list)
         history = [{"text": h["text"], "files": h["files"]} for h in tickets[:i] if h["fixed_at"] < t["fixed_at"]]
-        rows.append({"gold": t["files"], "dev": i < cut,
+        rows.append({"gold": t["files"], "dev": i < cut, "text": t["text"],
                      "path": baseline.rank_paths(t["text"], alive_list),
                      "history": baseline.rank_history(t["text"], history, alive),
                      "symbols": sym.rank_bm25(t["text"], alive),
@@ -197,8 +206,31 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         "disabled": [s for s, v in best_w.items() if not v],
         "triage_test": _triage(test, best_w),
     }
+    if rerank_n:
+        result["rerank_test"] = _rerank(test[:rerank_n], best_w, out_dir / f"symbols-{boundary[:10]}.json")
     (out_dir / "calibration.json").write_text(json.dumps(result, indent=2))
     return result
+
+
+def _rerank(rows: list[dict], weights: dict[str, float], sym_path: Path) -> dict:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from crewline.crew.models import Choice
+    from crewline.locate import rerank
+
+    raw = json.loads(sym_path.read_text())
+    w = {k: v for k, v in weights.items() if v}
+    choice = Choice("agy", "gemini-4-neon-medium")
+
+    def one(r: dict) -> tuple[float, float]:
+        fused = baseline.fuse(*[r[s] for s in w], weights=list(w.values()), k=60)
+        rr = rerank.rerank(r["text"], fused, raw, choice) or fused
+        return _recall(fused, r["gold"], 10), _recall(rr, r["gold"], 10)
+
+    with ThreadPoolExecutor(2) as ex:
+        pairs = list(ex.map(one, rows))
+    return {"n": len(pairs), "fused_recall@10": round(statistics.mean(p[0] for p in pairs), 3),
+            "rerank_recall@10": round(statistics.mean(p[1] for p in pairs), 3)}
 
 
 def weights_for(repo: Path) -> dict[str, float] | None:
