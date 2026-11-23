@@ -22,6 +22,7 @@ Cursor / other clients: command `uv`, args `--directory /path/to/crewline run cr
 | `ticket_brief(key)` | Markdown brief of a Jira ticket; images and screenshots described where they appear |
 | `locate_files(ticket, repo)` | Files most likely to change, with evidence (signals, similar past tickets) |
 | `team_memory(paths)` | Lessons from past code reviews of those files, filtered by your repo access |
+| `triage_ticket(ticket, repo)` | Zero-token routing: likely module(s), file to open first, CODEOWNERS owners |
 
 Environment: `JIRA_URL`, `JIRA_TOKEN` (Data Center PAT, or Cloud API token with `JIRA_USER`), `CREWLINE_DATA`
 (cache folder), `CREWLINE_CLIS` (which agent CLIs Crewline itself may drive; default `agy`).
