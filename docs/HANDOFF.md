@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (5) · P2: đội = solo về chất lượng, worker rẻ hơn, chậm hơn ~14%
+
+- **Chỉ dùng agy** (Codex/Claude CLI là tùy chọn khi người dùng tự liên kết tài khoản).
+- Claude qua agy headless liên tục gọi `run_command` (bị chặn) → không làm worker được; Gemini Neon dùng đúng tool file → worker. Claude qua agy làm review ổn (15/15).
+- **click solve, 16 issue, test ẩn, Docker:** solo Neon High 7/16 (0.438); đội 7/15 (dừng trước click-3637 vì máy thiếu RAM). Trên 15 cặp: **cùng kết quả từng issue**; đội dùng worker Neon Medium/Flash, trung bình 485 s so với 427 s.
+- Kết quả: `evals/results/click-solve-solo-vs-crew-2026-11-23.json`.
+- Kết luận P2: chưa thắng về tỉ lệ giải; lợi thế đo được là chạy bằng tầng model rẻ hơn với cùng chất lượng. Chia nhiều task không xảy ra (lead luôn chọn 1 task cho issue cỡ này).
+
+**Bước kế:** chạy nốt click-3637 cho đội (`uv run crewline eval solve --repo click --mode crew`, tự tiếp tục); đo token để chốt "rẻ hơn"; sau đó P4 (MCP server + đóng gói định vị, phần đã đạt).
+
+---
+
 ## 2026-11-22 (4) · P1 xong; P2 bị chặn vì hết quota; P3 chưa có lợi ích đo được
 
 - **P1 (xong, đạt):** rerank 60 ứng viên bằng Neon, r@10 eval: Kafka 0.799, HBase 0.882, Flink 0.704, Hive 0.654 → trung bình có trọng số **0.735** trên 710 ticket (mục tiêu 0.70).

@@ -1,0 +1,8 @@
+{
+  "benchmark": "click-solve", "date": "2026-11-23", "instances": 16, "hidden_tests": true,
+  "runtime": "Docker --network none, click installed in container",
+  "solo_agy_gemini-4-neon-high": {"n": 16, "resolved": 7, "rate": 0.438},
+  "crew": {"n": 15, "resolved": 7, "rate": 0.467, "lead": "agy gemini-4-neon-high", "workers": "agy gemini-4-neon-medium (13), gemini-3.8-flash-low (2)", "review": "agy claude-opus-5-5-high (15/15 ok)"},
+  "paired_15": {"solo_resolved": 7, "crew_resolved": 7, "same_outcome_every_instance": true, "mean_seconds_solo": 427, "mean_seconds_crew": 485},
+  "note": "Run stopped by the host for low memory before crew instance click-3637. Crew reached solo quality with a cheaper worker tier, ~14% slower."
+}
