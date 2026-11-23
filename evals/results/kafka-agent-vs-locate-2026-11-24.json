@@ -1,0 +1,22 @@
+{
+  "benchmark": "kafka-agent-vs-locate",
+  "date": "2026-11-24",
+  "n": 60,
+  "agent": "gemini-4-neon-medium",
+  "agent_explore": {
+    "recall@10": 0.804,
+    "ok": 60,
+    "median_tokens_in": 65700,
+    "median_seconds": 63
+  },
+  "locate_fused": {
+    "recall@10": 0.686,
+    "tokens_in": 0
+  },
+  "locate_rerank": {
+    "recall@10": 0.811,
+    "rerank_cached": 60
+  },
+  "locate_rerank_wins": 10,
+  "agent_wins": 8
+}

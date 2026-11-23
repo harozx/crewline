@@ -73,7 +73,7 @@ Dữ liệu và cache ở `D:/crewline-data`, không vào repo.
 - [x] MCP server (`crewline mcp`: ticket_brief, locate_files, team_memory).
 - [x] `crewline calibrate`: hiệu chỉnh theo lịch sử của từng repo.
 - [x] Bản đồ codebase trên repo nhỏ (click): không lợi (+24% thời gian) → tắt mặc định.
-- [x] Bản đồ codebase trên repo lớn (Kafka): cùng recall, +40% token → tắt. `locate`+rerank 0.878 vs agent tự mò 0.798 (cùng 20 ticket, 3.6x ít token).
+- [x] Bản đồ codebase trên repo lớn (Kafka): cùng recall, +40% token → tắt. ở 60 ticket: `locate`+rerank 0.811 ≈ agent tự mò 0.804, ít token hơn ~3.6x (con số 20 ticket là may).
 - [ ] Xác nhận `locate` vs agent tự mò trên mẫu lớn hơn (Kafka + Flink).
 - [ ] Tài liệu, README tiếng Việt, công bố benchmark.
 - [ ] Mở public (cần owner duyệt).
