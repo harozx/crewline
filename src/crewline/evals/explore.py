@@ -101,6 +101,94 @@ def run(n: int = 20, seed: int = 11) -> dict:
     return result
 
 
+HINT_PROMPT = """Read brief.md: a ticket for this repository. locate.md lists files a code-search tool ranked as most
+likely to need changes, best first (it is right about 4 times in 5 but not always). Start from those candidates,
+check them, and look elsewhere only if they do not fit the ticket. Read only, do not change anything.
+Reply with JSON only: {"files": ["path/relative/to/repo/root", ...]}, the source files (not tests) that must be
+MODIFIED, most likely first, at most 10."""
+
+
+def with_hints(project: str, n: int = 60, seed: int = 11, workers: int = 2, top: int = 10) -> dict:
+    """Agent + Crewline: the agent gets locate's top files as locate.md, then explores. Same tickets and seed as
+    versus_locate, so the numbers compare directly. Resumable per ticket."""
+    repo, out = apache.paths(project)
+    snap = git.rev_before(repo, apache.CUTOFF)
+    tickets = apache.split_rows(apache.load(project), "eval")
+    random.Random(seed).shuffle(tickets)
+    tickets = tickets[:n]
+    from crewline.locate import baseline
+    ranks = {r["key"]: r for r in apache.rankings(project, "eval")}
+    rr = {}
+    for line in open(out / "rerank-gemini-4-neon-medium-pool60.jsonl", encoding="utf-8"):
+        d = json.loads(line)
+        rr[d["key"]] = d["ranked"]
+    w = apache.FUSIONS["tuned"]
+
+    def hints(t: dict) -> list[str]:
+        x = ranks[t["key"]]
+        return rr.get(t["key"]) or baseline.fuse(*[x[c] for c in w], weights=list(w.values()), k=60)
+
+    base = data_dir() / "explore"
+    cache = base / f"{project}-hints.jsonl"
+    done = {}
+    if cache.exists():
+        for line in open(cache, encoding="utf-8"):
+            r = json.loads(line)
+            done[r["key"]] = r["agent"]
+    todo = [t for t in tickets if t["key"] not in done]
+    if todo:
+        wts = []
+        for i in range(workers):
+            wt = base / f"{project}-hint-wt{i}"
+            if wt.exists():
+                subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)],
+                               capture_output=True)
+                shutil.rmtree(wt, ignore_errors=True)
+            git._git(repo, "worktree", "add", "-q", "--detach", str(wt), snap)
+            wts.append(wt)
+
+        def one(i_t: tuple[int, dict]) -> None:
+            i, t = i_t
+            wt = wts[i % workers]
+            (wt / "brief.md").write_text(f"# {t['key']}: {t['summary']}\n\n{t['description']}", encoding="utf-8")
+            (wt / "locate.md").write_text("\n".join(f"{k + 1}. {p}" for k, p in enumerate(hints(t)[:top])),
+                                          encoding="utf-8")
+            res = adapters.run(AGENT, HINT_PROMPT, wt, tier="explore", purpose="eval.explore.hints", timeout=900)
+            m = re.search(r"\{.*\}", res.text or "", re.S)
+            try:
+                files = json.loads(m.group(0)).get("files", []) if (res.ok and m) else []
+            except ValueError:
+                files = []
+            ans = {"ok": res.ok, "files": [_norm(f, wt) for f in files], "tokens_in": res.tokens_in,
+                   "seconds": round(res.seconds, 1)}
+            with open(cache, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({"key": t["key"], "agent": ans}) + "\n")
+            done[t["key"]] = ans
+
+        try:
+            for start in range(0, len(todo), workers):
+                with ThreadPoolExecutor(workers) as ex:
+                    list(ex.map(one, list(enumerate(todo[start:start + workers]))))
+        finally:
+            for wt in wts:
+                subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)],
+                               capture_output=True)
+    ok = [done[t["key"]] for t in tickets if done[t["key"]]["ok"]]
+    rec = [apache.recall(done[t["key"]]["files"], t["files"], 10) for t in tickets]
+    loc = [apache.recall(hints(t), t["files"], 10) for t in tickets]
+    result = {"benchmark": f"{project}-agent-with-locate-hints", "date": time.strftime("%Y-%m-%d"),
+              "n": len(tickets), "agent": AGENT.model,
+              "agent_with_hints": {"recall@10": round(statistics.mean(rec), 3), "ok": len(ok),
+                                   "median_tokens_in": int(statistics.median([a["tokens_in"] or 0 for a in ok]))
+                                   if ok else None,
+                                   "median_seconds": round(statistics.median([a["seconds"] for a in ok]))
+                                   if ok else None},
+              "locate_alone_recall@10": round(statistics.mean(loc), 3)}
+    res_dir = Path(__file__).resolve().parents[3] / "evals" / "results"
+    (res_dir / f"{project}-agent-with-hints-{result['date']}.json").write_text(json.dumps(result, indent=2))
+    return result
+
+
 def versus_locate(project: str, n: int = 30, seed: int = 11, workers: int = 2) -> dict:
     """Agent exploring the repo alone vs Crewline locate (fused, and fused + re-rank) on the same tickets.
     Agent answers are cached per ticket (resumable); locate numbers come from the benchmark caches."""

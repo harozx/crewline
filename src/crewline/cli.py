@@ -49,6 +49,14 @@ def eval_versus(project: str = typer.Option("kafka", help="kafka | flink | hbase
     typer.echo(json.dumps(explore.versus_locate(project, n), indent=2))
 
 
+@evals_app.command("hints")
+def eval_hints(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive"),
+               n: int = typer.Option(60, help="Same tickets as `eval versus`.")) -> None:
+    """Agent + Crewline: the agent starts from locate's top files. Compare with `eval versus`."""
+    from crewline.evals import explore
+    typer.echo(json.dumps(explore.with_hints(project, n), indent=2))
+
+
 @evals_app.command("memory")
 def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
     """Review with vs without team memory: how often the agent raises the human reviewer's point."""
