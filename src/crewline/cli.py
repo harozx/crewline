@@ -41,6 +41,14 @@ def eval_explore(n: int = typer.Option(20, help="Kafka eval tickets to test.")) 
     typer.echo(json.dumps(explore.run(n), indent=2))
 
 
+@evals_app.command("versus")
+def eval_versus(project: str = typer.Option("kafka", help="kafka | flink | hbase | hive"),
+                n: int = typer.Option(30, help="Eval tickets (same seed -> same tickets).")) -> None:
+    """Agent exploring alone vs Crewline locate on the same tickets: recall, tokens, time."""
+    from crewline.evals import explore
+    typer.echo(json.dumps(explore.versus_locate(project, n), indent=2))
+
+
 @evals_app.command("memory")
 def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
     """Review with vs without team memory: how often the agent raises the human reviewer's point."""
