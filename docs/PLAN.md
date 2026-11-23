@@ -70,8 +70,18 @@ Dữ liệu và cache ở `D:/crewline-data`, không vào repo.
 
 ### P4 · Pilot + phát hành (tuần 7–8)
 - Pilot chỉ đọc ở công ty owner (cần owner duyệt: đây là việc phải báo).
-- MCP server, tài liệu, README tiếng Anh + tiếng Việt, công bố benchmark.
-- Mở public (cần owner duyệt).
+- [x] MCP server (`crewline mcp`: ticket_brief, locate_files, team_memory).
+- [x] `crewline calibrate`: hiệu chỉnh theo lịch sử của từng repo.
+- [ ] Bản đồ codebase: đo token/thời gian worker có/không có bản đồ.
+- [ ] Tài liệu, README tiếng Việt, công bố benchmark.
+- [ ] Mở public (cần owner duyệt).
+
+### Sau P4 · Đóng gói và hiệu năng (chỉ khi cần)
+- Giữ Python cho lõi và bộ đo: >95% thời gian là chờ model (gộp tín hiệu ~0.5 s/ticket; rerank 30–60 s; worker 6–10 phút).
+- Bước rẻ trước: thay `rank_bm25` bằng thư viện có lõi native (`bm25s` hoặc tantivy-py) khi repo > ~50k file.
+- Chỉ khi phân phối public cần một file thực thi duy nhất, hoặc repo cực lớn: viết lại **lõi chỉ mục** bằng Rust
+  (git history, tree-sitter, tantivy), gọi từ Python qua PyO3; điều phối agent và bộ đo vẫn là Python.
+- Thêm bộ trích symbol cho TS/JS, Go, C# theo repo mục tiêu (ngôn ngữ công cụ ≠ ngôn ngữ repo).
 
 ## Rủi ro
 | Rủi ro | Xử lý |
