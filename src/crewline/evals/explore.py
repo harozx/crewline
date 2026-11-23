@@ -75,7 +75,7 @@ def run(n: int = 20, seed: int = 11) -> dict:
     for t in tickets:
         text = f"# {t['key']}: {t['summary']}\n\n{t['description']}"
         with ThreadPoolExecutor(2) as ex:
-            off, on = ex.map(lambda c: _ask(wts[c], text, c == "map"), ("nomap", "map"))
+            off, on = ex.map(lambda c, txt=text: _ask(wts[c], txt, c == "map"), ("nomap", "map"))
         row = {"key": t["key"], "gold": t["files"], "nomap": off, "map": on}
         rows.append(row)
         with open(base / "rows.jsonl", "a", encoding="utf-8") as fh:
