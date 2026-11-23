@@ -51,6 +51,15 @@ def _git(repo: Path, *args: str, stdin: str | None = None) -> str:
     return out
 
 
+class InfraError(RuntimeError):
+    """The benchmark runtime (Docker, git) is broken; results would be meaningless."""
+
+
+def require_docker() -> None:
+    if _run(["docker", "info", "--format", "{{.ServerVersion}}"], timeout=60)[0] != 0:
+        raise InfraError("Docker engine is not running; start Docker Desktop and re-run (runs resume).")
+
+
 def ensure_image() -> None:
     if _run(["docker", "image", "inspect", IMAGE])[0] == 0:
         return
@@ -180,6 +189,9 @@ def score(name: str, inst: dict, result_ref: str, tag: str = "") -> dict:
         docker_pytest(wt, REPOS[name]["pythonpath"], " ".join(inst["tests"]))
         res = _results(wt)
     _run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)])
+    if applied and not res:
+        # pytest produced no results at all: the runtime is broken, not the candidate fix
+        raise InfraError(f"no test results while scoring {inst['id']} (is Docker running?)")
     f2p = [res.get(t, False) for t in inst["FAIL_TO_PASS"]]
     p2p = [res.get(t, False) for t in inst["PASS_TO_PASS"]]
     return {"resolved": applied and all(f2p) and all(p2p), "f2p": f"{sum(f2p)}/{len(f2p)}",
@@ -206,6 +218,7 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
     for inst in insts:
         if inst["id"] in done:
             continue
+        require_docker()   # a dead engine makes every gate and score "fail": stop instead of recording that
         base_wt = _worktree(repo, inst["base"], out / f"wt-base-{tag}{inst['id']}")
         _git(base_wt, "checkout", "-q", "-B", f"solve/{tag}{inst['id']}")
         bf = res_dir / f"{inst['id']}.md"
