@@ -106,8 +106,11 @@ def build(repo: Path, sha: str | None = None) -> Path:
         lines.append(f"### {d}/")
         if summaries.get(d):
             lines.append(summaries[d])
-        for name, names in sorted(by[d])[:40]:
-            lines.append(f"- `{name}`" + (f": {', '.join(names[:8])}" if names else ""))
+        files = sorted(by[d])
+        for name, names in files[:15]:   # keep big-repo maps skimmable; the summary names the file to open
+            lines.append(f"- `{name}`" + (f": {', '.join(names[:6])}" if names else ""))
+        if len(files) > 15:
+            lines.append(f"- ... {len(files) - 15} more files")
         lines.append("")
     out.write_text("\n".join(lines), encoding="utf-8")
     return out

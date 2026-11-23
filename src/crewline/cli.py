@@ -34,6 +34,13 @@ def solve_run(mode: str = typer.Option("crew", help="crew | solo:<cli>:<model>")
     typer.echo(json.dumps(solve.run(repo, mode, limit), indent=2))
 
 
+@evals_app.command("explore")
+def eval_explore(n: int = typer.Option(20, help="Kafka eval tickets to test.")) -> None:
+    """Large-repo exploration cost: agent finds files to change on Kafka, with vs without a codebase map."""
+    from crewline.evals import explore
+    typer.echo(json.dumps(explore.run(n), indent=2))
+
+
 @evals_app.command("memory")
 def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
     """Review with vs without team memory: how often the agent raises the human reviewer's point."""
