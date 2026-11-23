@@ -4,6 +4,16 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (6) · P2 chốt 7/16 = 7/16; P4 bắt đầu: MCP server chạy được
+
+- **P2 chốt:** đội 7/16, solo Neon High 7/16, trùng kết quả cả 16 issue; đội dùng worker rẻ hơn, chậm ~16% (495 s vs 427 s).
+- **P4:** `crewline mcp` (mcp 2.3, `MCPServer`): `ticket_brief`, `locate_files`, `team_memory`. Đã gọi thật qua client stdio (`scripts/mcp_smoke.py`): locate đưa `PartitionChangeBuilder.java` lên #1 cho KAFKA-21597; memory trả bài học kèm link; brief đọc Jira công khai.
+- README viết lại theo định vị ADR-0002 + bảng benchmark trung thực (cả phần chưa đạt).
+
+**Bước kế:** thử `locate_files` trên repo riêng (đo khi model chưa từng thấy code); đọc thêm comment + issue liên kết cho ticket mô tả ngắn (chỗ trượt lớn của Hive/Flink); pilot chỉ đọc ở công ty owner (cần owner duyệt).
+
+---
+
 ## 2026-11-23 (5) · P2: đội = solo về chất lượng, worker rẻ hơn, chậm hơn ~14%
 
 - **Chỉ dùng agy** (Codex/Claude CLI là tùy chọn khi người dùng tự liên kết tài khoản).

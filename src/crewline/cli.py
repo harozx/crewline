@@ -75,6 +75,13 @@ def brief(key: str, jira: str = typer.Option("https://issues.apache.org/jira", h
     typer.echo(str(path))
 
 
+@app.command("mcp")
+def mcp_server() -> None:
+    """Run the Crewline MCP server on stdio (ticket_brief, locate_files, team_memory)."""
+    from crewline.mcp.server import main
+    main()
+
+
 @app.command("locate")
 def locate_cmd(ticket: str = typer.Argument(..., help="Ticket text, or a path to brief.md."),
                repo: Path = typer.Option(Path("."), help="Git repository to search."),
