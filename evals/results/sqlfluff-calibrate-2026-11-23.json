@@ -1,0 +1,35 @@
+{
+  "repo": "D:\\crewline-data\\repos\\sqlfluff",
+  "source": "github",
+  "date": "2026-11-23",
+  "tickets": 277,
+  "dev": 166,
+  "test": 111,
+  "optimistic": false,
+  "signals_alone_test": {
+    "path": 0.757,
+    "history": 0.596,
+    "symbols": 0.647,
+    "mentions": 0.219
+  },
+  "default_weights_test": {
+    "recall@1": 0.348,
+    "recall@5": 0.592,
+    "recall@10": 0.702
+  },
+  "calibrated_weights": {
+    "path": 3,
+    "history": 0.5,
+    "symbols": 0,
+    "mentions": 0
+  },
+  "calibrated_test": {
+    "recall@1": 0.475,
+    "recall@5": 0.733,
+    "recall@10": 0.763
+  },
+  "disabled": [
+    "symbols",
+    "mentions"
+  ]
+}

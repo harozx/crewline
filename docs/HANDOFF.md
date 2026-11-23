@@ -4,6 +4,17 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (7) · `crewline calibrate`: mỗi repo một cấu hình, tự đo trên lịch sử của chính nó
+
+- Backtest theo thời gian (dò 60% cũ, chấm 40% mới), symbol từ worktree snapshot trong thư mục dữ liệu (không đụng working tree người dùng); `locate`/MCP tự dùng `calibration.json`.
+- **Kafka** (keys + Jira, 400 ticket): nguồn mạnh nhất symbol 0.56; r@10 0.620 → 0.642.
+- **sqlfluff** (issue GitHub, 277 ticket): nguồn mạnh nhất đường dẫn 0.76; hiệu chỉnh **tắt** symbol + mentions; r@10 0.702 → 0.763, r@1 0.348 → 0.475.
+- Repo riêng của owner (media-judge, viet-lyricist, TradingAgents) quá nhỏ / không có mã ticket → không hiệu chỉnh được (công cụ trả "không đủ lịch sử").
+
+**Bước kế:** bản đồ codebase (đo token/thời gian worker có/không có); hiệu chỉnh thêm nguồn trí nhớ "tại sao" theo từng repo; pilot chỉ đọc ở công ty (cần owner duyệt).
+
+---
+
 ## 2026-11-23 (6) · P2 chốt 7/16 = 7/16; P4 bắt đầu: MCP server chạy được
 
 - **P2 chốt:** đội 7/16, solo Neon High 7/16, trùng kết quả cả 16 issue; đội dùng worker rẻ hơn, chậm ~16% (495 s vs 427 s).
