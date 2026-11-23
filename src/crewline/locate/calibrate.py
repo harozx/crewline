@@ -124,6 +124,26 @@ def _score(rows: list[dict], weights: dict[str, float]) -> dict[str, float]:
     return {f"recall@{k}": round(statistics.mean(v), 3) for k, v in per.items()}
 
 
+def _triage(rows: list[dict], weights: dict[str, float]) -> dict:
+    """Module routing accuracy (zero tokens): is a module of the real fix ranked first / in the top 3?"""
+    from collections import Counter
+
+    from crewline.evals.triage import module, rank_modules
+    w = {k: v for k, v in weights.items() if v}
+    top1, top3, base = [], [], []
+    seen: Counter = Counter()
+    for r in rows:
+        gold = {module(f) for f in r["gold"]}
+        ranked = rank_modules(baseline.fuse(*[r[s] for s in w], weights=list(w.values()), k=60)) if w else []
+        top1.append(bool(ranked) and ranked[0] in gold)
+        top3.append(bool(set(ranked[:3]) & gold))
+        base.append(bool(seen) and seen.most_common(1)[0][0] in gold)   # most-changed module so far
+        seen.update(gold)
+    return {"modules": len({module(f) for r in rows for f in r["gold"]}),
+            "top1": round(statistics.mean(top1), 3), "top3": round(statistics.mean(top3), 3),
+            "majority_top1": round(statistics.mean(base), 3)}
+
+
 def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: str | None = None,
         slug: str | None = None, max_tickets: int = 400) -> dict:
     repo = repo.resolve()
@@ -175,6 +195,7 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         "calibrated_weights": best_w,
         "calibrated_test": _score(test, best_w),
         "disabled": [s for s, v in best_w.items() if not v],
+        "triage_test": _triage(test, best_w),
     }
     (out_dir / "calibration.json").write_text(json.dumps(result, indent=2))
     return result

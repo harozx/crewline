@@ -72,3 +72,11 @@ def test_only_enabled_clis_are_routed(tmp_path, monkeypatch):
         assert {c.cli for c in pick(tier)} == {"agy"}
     # writer Claude-via-agy still gets a reviewer from another vendor
     assert all(c.vendor != "anthropic" for c in pick("heavy", avoid_vendor="anthropic"))
+
+
+def test_test_file_detection_across_languages():
+    for t in ("src/foo_test.go", "web/a.test.ts", "web/a.spec.tsx", "core/FooTest.java", "tests/x.py",
+              "crates/img/tests/blur.rs", "app/__tests__/x.js", "test_util.py"):
+        assert is_test(t), t
+    for c in ("src/latest.ts", "core/Contest.java", "crates/img/src/blur.rs", "pkg/attest/sign.go"):
+        assert not is_test(c), c

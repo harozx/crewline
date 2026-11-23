@@ -7,20 +7,26 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 from rank_bm25 import BM25Okapi
 
 from crewline.locate.text import tokens
 
+CODE_EXT = (".java", ".scala", ".py", ".kt", ".go", ".ts", ".tsx", ".js", ".jsx", ".rs")
+TEST_NAME = re.compile(r"(^test|_test\.\w+$|\.test\.\w+$|\.spec\.\w+$|Tests?\.\w+$)")
+
 
 def is_code(path: str) -> bool:
-    return path.endswith((".java", ".scala", ".py", ".kt", ".go", ".ts", ".js")) and not is_test(path)
+    return path.endswith(CODE_EXT) and not path.endswith(".d.ts") and not is_test(path)
 
 
 def is_test(path: str) -> bool:
-    p = path.lower()
-    return "/test/" in p or "/tests/" in p or p.split("/")[-1].startswith("test") or "test." in p.split("/")[-1]
+    p = "/" + path.lower()
+    name = path.rsplit("/", 1)[-1]
+    return (any(d in p for d in ("/test/", "/tests/", "/__tests__/", "/spec/", "/testing/fixtures/"))
+            or bool(TEST_NAME.search(name)) or name.lower().startswith("test"))
 
 
 def rank_paths(query: str, paths: list[str], k: int = 50) -> list[str]:

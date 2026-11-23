@@ -16,10 +16,14 @@ from rank_bm25 import BM25Okapi
 from crewline.locate.baseline import is_code
 from crewline.locate.text import tokens
 
-TYPE_DECL = re.compile(r"\b(?:class|interface|enum|record|object|trait)\s+([A-Z][A-Za-z0-9_]*)")
+# Java/Scala/Kotlin/Python/TypeScript/Rust/Go type declarations (`type X struct` for Go).
+TYPE_DECL = re.compile(r"\b(?:class|interface|enum|record|object|trait|struct|type)\s+([A-Z][A-Za-z0-9_]*)")
 METHOD_DECL = re.compile(
     r"^\s*(?:(?:public|protected|private|static|final|abstract|synchronized|default|override|def|"
-    r"implicit|lazy)\s+)+(?:[\w<>\[\],.?]+\s+)?([a-zA-Z_]\w*)\s*[\[(]", re.M)
+    r"implicit|lazy|export|async|function|pub(?:\([a-z]+\))?|fn|unsafe|const)\s+)+"
+    r"(?:[\w<>\[\],.?]+\s+)?([a-zA-Z_]\w*)\s*[\[(<]", re.M)
+GO_FUNC = re.compile(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*[\[(]", re.M)
+TS_ARROW = re.compile(r"^\s*(?:export\s+)?const\s+([a-zA-Z_]\w*)\s*=\s*(?:async\s*)?\(", re.M)
 CONFIG_KEY = re.compile(r'"([a-z][a-z0-9]*(?:\.[a-z0-9-]+){1,})"')
 
 # What a ticket can mention: Class#method, Class.method, CamelCase, config.keys, stack frames, file names.
@@ -32,7 +36,8 @@ FILE = re.compile(r"\b([A-Z]\w+)\.(?:java|scala)\b")
 def extract(text: str) -> dict[str, list[str]]:
     return {
         "types": sorted(set(TYPE_DECL.findall(text))),
-        "methods": sorted(set(METHOD_DECL.findall(text)) - {"if", "for", "while", "switch", "return", "new"}),
+        "methods": sorted((set(METHOD_DECL.findall(text)) | set(GO_FUNC.findall(text)) | set(TS_ARROW.findall(text)))
+                          - {"if", "for", "while", "switch", "return", "new", "match", "await"}),
         "keys": sorted(set(CONFIG_KEY.findall(text))),
     }
 
