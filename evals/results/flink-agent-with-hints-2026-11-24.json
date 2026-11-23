@@ -1,0 +1,13 @@
+{
+  "benchmark": "flink-agent-with-locate-hints",
+  "date": "2026-11-24",
+  "n": 40,
+  "agent": "gemini-4-neon-medium",
+  "agent_with_hints": {
+    "recall@10": 0.821,
+    "ok": 40,
+    "median_tokens_in": 78219,
+    "median_seconds": 81
+  },
+  "locate_alone_recall@10": 0.68
+}

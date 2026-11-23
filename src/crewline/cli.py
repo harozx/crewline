@@ -57,6 +57,13 @@ def eval_hints(project: str = typer.Option("kafka", help="kafka | flink | hbase 
     typer.echo(json.dumps(explore.with_hints(project, n), indent=2))
 
 
+@evals_app.command("triage")
+def eval_triage() -> None:
+    """Zero-token module triage on the Apache benchmark: locate vs Jira components vs majority."""
+    from crewline.evals import triage
+    typer.echo(json.dumps(triage.run(), indent=2))
+
+
 @evals_app.command("memory")
 def eval_memory(n: int = typer.Option(60, help="Number of review comments to test.")) -> None:
     """Review with vs without team memory: how often the agent raises the human reviewer's point."""

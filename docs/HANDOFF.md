@@ -4,6 +4,16 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (14) · Triage theo module: chỗ `locate` mạnh thật
+
+- Flink agent + gợi ý: 0.821 (agent tự mò 0.835) nhưng −20% token, −24% thời gian. Gợi ý = rẻ hơn, không trúng hơn.
+- **Triage module (710 ticket, 0 token, 6 s):** locate top-1 **0.689**, top-3 **0.920**; Jira Component → module 0.544; module phổ biến nhất 0.299. Từng dự án locate đều thắng (Flink sát: 0.679 vs 0.662 vì Component điền đủ).
+- ADR-0003 + README cập nhật. Lệnh `crewline eval triage`.
+
+**Bước kế:** đưa triage thành công cụ MCP `triage_ticket` (module + team + file đầu tiên, 0 token); pilot (cần owner).
+
+---
+
 ## 2026-11-24 (13) · Agent tự mò rất giỏi; giá trị của `locate` là rẻ + nhanh, không phải trúng hơn
 
 | | Kafka 60 r@10 | token / s | Flink 40 r@10 | token / s |

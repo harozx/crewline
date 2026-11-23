@@ -54,6 +54,16 @@ quarter of the tokens, and a zero-token ranking in half a second, which is what 
 routing hundreds of tickets before any agent runs. On a hard ticket in a large repo, let the agent explore
 (giving it Crewline's list first saved ~15% tokens but did not raise recall).
 
+**Triage: which module does a ticket belong to?** (710 tickets, zero tokens, 6 s for all of them)
+
+| | top-1 | top-3 |
+|---|---|---|
+| Most-changed module | 0.299 | |
+| Jira Component field → module | 0.544 | |
+| **Crewline locate (no model)** | **0.689** | **0.920** |
+
+Routing a ticket to the right team or module before any agent runs is where a zero-token ranking pays off.
+
 **Per-repo calibration** (`crewline calibrate`): which signals help depends on the codebase. Kafka favours
 symbols (recall@10 0.620 → 0.642 after calibration); sqlfluff favours paths and drops two signals
 (0.702 → 0.763).
