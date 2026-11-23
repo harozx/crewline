@@ -4,6 +4,16 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (9) · Bản đồ codebase: không lợi trên repo nhỏ
+
+- click 16 issue, Neon High solo: không bản đồ 7/16, 429 s/issue, ~178k token (ước); có bản đồ 7/16 (cùng tập), 533 s (+24%), 191k token.
+- Kết luận: repo ~60 file thì agent tự tìm đủ nhanh; bản đồ **tắt mặc định**. Cần đo trên repo lớn.
+- Máy: lượt chạy bị dừng 2 lần vì RAM (game ~2.6 GB + Docker) → chạy khi máy rảnh; resume hoạt động đúng.
+
+**Bước kế:** đo chi phí khám phá trên repo lớn (Kafka): agent chỉ đọc, tìm file cần sửa, có/không bản đồ → token, thời gian, recall so với file thật.
+
+---
+
 ## 2026-11-23 (8) · TẠM DỪNG (máy chạy pin, sạc không vào): đo bản đồ codebase dở 1/16
 
 - Bản đồ codebase (`memory/codemap.py`) xong: ~7.4k ký tự cho click, có lệnh test + mục đích từng thư mục; cache theo commit.

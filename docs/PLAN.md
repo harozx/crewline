@@ -72,7 +72,8 @@ Dữ liệu và cache ở `D:/crewline-data`, không vào repo.
 - Pilot chỉ đọc ở công ty owner (cần owner duyệt: đây là việc phải báo).
 - [x] MCP server (`crewline mcp`: ticket_brief, locate_files, team_memory).
 - [x] `crewline calibrate`: hiệu chỉnh theo lịch sử của từng repo.
-- [ ] Bản đồ codebase: đo token/thời gian worker có/không có bản đồ.
+- [x] Bản đồ codebase trên repo nhỏ (click): không lợi (+24% thời gian) → tắt mặc định.
+- [ ] Bản đồ codebase trên repo lớn (Kafka): chi phí khám phá có/không bản đồ.
 - [ ] Tài liệu, README tiếng Việt, công bố benchmark.
 - [ ] Mở public (cần owner duyệt).
 

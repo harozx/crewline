@@ -1,0 +1,8 @@
+{
+  "benchmark": "click-solve", "date": "2026-11-23", "instances": 16, "worker": "agy gemini-4-neon-high (solo)",
+  "no_map": {"resolved": 7, "mean_seconds": 429, "tokens_in_per_issue_est": 177703},
+  "codemap": {"resolved": 7, "mean_seconds": 533, "tokens_in_per_issue": 191437, "calls": 19},
+  "same_resolved_set": true,
+  "conclusion": "On a ~60-file repo the map adds reading without saving exploration: same quality, +24% time, ~+8% tokens. Not enabled by default; needs a large-repo test.",
+  "note": "no_map tokens estimated from the ledger window of the earlier run (steps did not record tokens then)."
+}
