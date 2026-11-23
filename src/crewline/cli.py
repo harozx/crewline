@@ -112,7 +112,7 @@ def calibrate_cmd(repo: Path = typer.Option(Path("."), help="Git repository to c
                   jira: str = typer.Option(None, help="Jira base URL for ticket text (keys source)."),
                   slug: str = typer.Option(None, help="owner/name on GitHub (github source)."),
                   max_tickets: int = typer.Option(400, help="Most recent tickets to use."),
-                  rerank_n: int = typer.Option(0, help="Also measure agent re-ranking on N test tickets (agy).")) -> None:
+                  rerank_n: int = typer.Option(0, help="Also measure agent re-ranking on N test tickets.")) -> None:
     """Backtest locate on this repo's own history and keep the signals that help here."""
     from crewline.locate import calibrate
     typer.echo(json.dumps(calibrate.run(repo, source, since, jira, slug, max_tickets, rerank_n), indent=2))
