@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (8) · TẠM DỪNG (máy chạy pin, sạc không vào): đo bản đồ codebase dở 1/16
+
+- Bản đồ codebase (`memory/codemap.py`) xong: ~7.4k ký tự cho click, có lệnh test + mục đích từng thư mục; cache theo commit.
+- Lượt đo đầu (Docker tắt sau khi máy khởi động lại) không hợp lệ → lưu ở `runs_invalid/`; đã thêm `InfraError` (Docker chết / không có kết quả test → dừng, không ghi là fail).
+- Lượt đo hợp lệ `solo:agy:gemini-4-neon-high+map`: 1/16 xong (click-3902: chưa giải, 231k token / 2 lượt gọi).
+- Máy tự ngủ/tắt nhiều lần: **Sleep Reason: Battery** (pin cạn → ngủ đông ở 5%); nguồn AC Offline, sạc không vào. Không phải do cài đặt sleep (đang là "never").
+- Lúc dừng đã tắt Docker Desktop + `wsl --shutdown` + các tiến trình agy để giữ pin.
+
+**Chạy tiếp (khi có sạc):** mở Docker Desktop → `uv run crewline eval solve --repo click --mode "solo:agy:gemini-4-neon-high+map"` (tự tiếp tục từ 2/16). Sau đó chạy lại lượt không bản đồ có ghi token để so cho chặt.
+
+---
+
 ## 2026-11-23 (7) · `crewline calibrate`: mỗi repo một cấu hình, tự đo trên lịch sử của chính nó
 
 - Backtest theo thời gian (dò 60% cũ, chấm 40% mới), symbol từ worktree snapshot trong thư mục dữ liệu (không đụng working tree người dùng); `locate`/MCP tự dùng `calibration.json`.
