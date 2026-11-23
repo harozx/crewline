@@ -4,6 +4,13 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (12) · Tạm dừng; chạy đêm bằng `scripts/overnight.ps1`
+
+- Đang dở: Kafka agent + gợi ý locate 19/60; Flink agent tự mò 1/40. Cả hai tự tiếp tục.
+- `scripts/overnight.ps1`: Kafka hints (60) → Flink versus (40) → Flink hints (40); giữ máy thức khi cửa sổ chạy; log `D:/crewline-data/overnight-*.log`. Không cần Docker.
+
+---
+
 ## 2026-11-24 (11) · SỬA kết luận: `locate` ngang agent tự mò về độ trúng, rẻ hơn ~3.6x
 
 - Kafka **60 ticket**: agent Neon Medium tự mò r@10 0.804 (66k token, 63 s); `locate` gộp 0.686 (0 token); **`locate` + rerank 0.811** (~18k token, ~40 s). Thắng riêng: locate 10, agent 8.
