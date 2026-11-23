@@ -41,11 +41,29 @@ the fix modified; weights tuned on a separate earlier split):
 
 recall@10. Re-ranking uses a model that may have seen these public codebases; private code may gain less.
 
+**Versus an agent exploring the repo itself** (same tickets; the agent lists the files to modify, read-only):
+
+| | Kafka (60) r@10 | tokens / time | Flink (40) r@10 | tokens / time |
+|---|---|---|---|---|
+| Agent alone (Gemini Neon Medium) | 0.804 | 66k / 63 s | **0.835** | 98k / 107 s |
+| Crewline locate, no model | 0.686 | **0 / 0.5 s** | 0.536 | **0 / 0.5 s** |
+| Crewline locate + re-rank | **0.811** | 18k / 40 s | 0.680 | 18k / 40 s |
+
+Agents explore well. Crewline's edge is cost and speed: about the same recall as the agent on Kafka for a
+quarter of the tokens, and a zero-token ranking in half a second, which is what you want when triaging or
+routing hundreds of tickets before any agent runs. On a hard ticket in a large repo, let the agent explore
+(giving it Crewline's list first saved ~15% tokens but did not raise recall).
+
+**Per-repo calibration** (`crewline calibrate`): which signals help depends on the codebase. Kafka favours
+symbols (recall@10 0.620 → 0.642 after calibration); sqlfluff favours paths and drops two signals
+(0.702 → 0.763).
+
 **Solving real issues** (16 pallets/click issues after 2026-07-01, hidden tests, Docker `--network none`):
 one agent 7/16, crew 7/16 with identical per-issue outcomes; the crew reached that with a cheaper worker tier.
 
 **Team memory** (803 lessons from Kafka reviews; does a reviewer catch what humans caught?): no gain measurable
 beyond run-to-run noise yet, so memory is served as an optional checklist, never injected by default.
+A generated codebase map did not help either (same recall, 8-40% more tokens on click and Kafka); it is off.
 
 ```
 uv run crewline eval build --project kafka && uv run crewline eval locate --project kafka
