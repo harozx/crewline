@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-23 (10) · Repo lớn: bản đồ vô ích; `locate` thắng agent tự mò
+
+- Kafka 20 ticket, agent Neon Medium chỉ đọc, tìm file cần sửa:
+  - không bản đồ r@10 0.798, 66k token, 73 s; có bản đồ (330 KB) r@10 0.798, 92k token (+40%), 65 s → **bản đồ tắt**.
+  - cùng 20 ticket: `locate` gộp (0 token, ~0.5 s) 0.745; **`locate` + rerank (18k token, 40 s) 0.878**.
+- Kết luận định vị sản phẩm: giá trị là **chỉ thẳng file** (lịch sử + symbol + hiệu chỉnh repo + rerank nhỏ), không phải nhồi ngữ cảnh. Trí nhớ: lịch sử "sửa ở đâu" có ích; bài học review và bản đồ codebase chưa có ích.
+- n=20 → cần xác nhận trên mẫu lớn hơn (vd 60 ticket, 2 dự án).
+
+**Bước kế:** xác nhận `locate` vs agent tự mò trên mẫu lớn hơn (Kafka + Flink); nếu giữ được, đưa con số này lên README và làm ví dụ demo MCP.
+
+---
+
 ## 2026-11-23 (9) · Bản đồ codebase: không lợi trên repo nhỏ
 
 - click 16 issue, Neon High solo: không bản đồ 7/16, 429 s/issue, ~178k token (ước); có bản đồ 7/16 (cùng tập), 533 s (+24%), 191k token.

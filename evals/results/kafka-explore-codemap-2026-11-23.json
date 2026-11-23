@@ -1,0 +1,33 @@
+{
+  "benchmark": "kafka-explore-codemap",
+  "date": "2026-11-23",
+  "n": 20,
+  "agent": "gemini-4-neon-medium",
+  "codemap_chars": 329666,
+  "nomap": {
+    "ok": 20,
+    "recall@5": 0.791,
+    "recall@10": 0.798,
+    "median_tokens_in": 65700,
+    "median_seconds": 73
+  },
+  "map": {
+    "ok": 20,
+    "recall@5": 0.794,
+    "recall@10": 0.798,
+    "median_tokens_in": 92181,
+    "median_seconds": 65
+  },
+  "same_tickets_locate": {
+    "locate_fused_recall@10": 0.745,
+    "locate_fused_tokens": 0,
+    "locate_fused_seconds": 0.5,
+    "locate_rerank_recall@10": 0.878,
+    "rerank_median_tokens_in": 18401,
+    "rerank_median_seconds": 40,
+    "agent_explore_recall@10": 0.798,
+    "agent_explore_median_tokens_in": 65700,
+    "agent_explore_median_seconds": 73
+  },
+  "conclusion": "Codemap: same recall, +40% tokens, -11% time -> off. Crewline locate+rerank beats agent self-exploration on the same 20 tickets: +8 pts recall@10 at ~3.6x fewer tokens and ~45% less time. n=20, confirm on more."
+}
