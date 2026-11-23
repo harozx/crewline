@@ -75,6 +75,18 @@ def brief(key: str, jira: str = typer.Option("https://issues.apache.org/jira", h
     typer.echo(str(path))
 
 
+@app.command("calibrate")
+def calibrate_cmd(repo: Path = typer.Option(Path("."), help="Git repository to calibrate on."),
+                  source: str = typer.Option("keys", help="keys (PROJ-123 in commits) | github | commits"),
+                  since: str = typer.Option("2023-01-01", help="History start date."),
+                  jira: str = typer.Option(None, help="Jira base URL for ticket text (keys source)."),
+                  slug: str = typer.Option(None, help="owner/name on GitHub (github source)."),
+                  max_tickets: int = typer.Option(400, help="Most recent tickets to use.")) -> None:
+    """Backtest locate on this repo's own history and keep the signals that help here."""
+    from crewline.locate import calibrate
+    typer.echo(json.dumps(calibrate.run(repo, source, since, jira, slug, max_tickets), indent=2))
+
+
 @app.command("mcp")
 def mcp_server() -> None:
     """Run the Crewline MCP server on stdio (ticket_brief, locate_files, team_memory)."""

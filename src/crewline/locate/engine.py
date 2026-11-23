@@ -65,7 +65,9 @@ def locate(repo: Path, ticket: str, *, top: int = 10, use_agent: bool = True,
         "symbols": sym.rank_bm25(ticket, alive),
         "mentions": sym.rank_mentions(ticket, alive),
     }
-    fused = baseline.fuse(*ranked.values(), weights=list(WEIGHTS.values()), k=POOL)
+    from crewline.locate.calibrate import weights_for
+    w = {k: v for k, v in (weights_for(repo) or WEIGHTS).items() if v}   # per-repo calibration when present
+    fused = baseline.fuse(*[ranked[k] for k in w], weights=list(w.values()), k=POOL)
     final = fused
     if use_agent:
         for choice in RERANKERS:
