@@ -41,15 +41,17 @@ border-top:1px solid var(--line)}}
 <span style="color:var(--co)">- - changed together</span><span>size = past tickets, red = bug share</span></div></header>
 <div id="graph"><svg></svg></div>
 <aside><input id="q" placeholder="Search tickets or modules">
-<div class="tabs"><button id="tOpen" class="on">Open tickets</button><button id="tMod">Modules</button></div>
+<div class="tabs"><button id="tOpen" class="on">Open tickets</button><button id="tCol">Overlaps</button><button id="tMod">Modules</button></div>
 <div id="list"></div><div id="detail"></div></aside>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script>
 const D = __DATA__;
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const byId = Object.fromEntries(D.modules.map(m => [m.id, m]));
+D.collisions = D.collisions || [];
+const nFile = D.collisions.filter(c => c.level === "file").length;
 document.getElementById("stats").textContent =
-  `${D.modules.length} modules · ${D.history_tickets} past tickets · ${D.open.length} open tickets`;
+  `${D.modules.length} modules · ${D.history_tickets} past tickets · ${D.open.length} open tickets · ${nFile} file collisions`;
 const svg = d3.select("svg"), g = svg.append("g");
 svg.call(d3.zoom().scaleExtent([.2, 4]).on("zoom", e => g.attr("transform", e.transform)));
 svg.append("defs").append("marker").attr("id","arr").attr("viewBox","0 -4 8 8").attr("refX",8).attr("markerWidth",6)
@@ -94,9 +96,18 @@ let tab = "open";
 function renderList(){
   const q = document.getElementById("q").value.toLowerCase(), el = document.getElementById("list");
   if (tab === "open") {
-    el.innerHTML = D.open.filter(t => (t.key + t.title).toLowerCase().includes(q)).map(t =>
-      `<div class="t" data-k="${esc(t.key)}"><div class="k">${esc(t.key)} <span class="chip">${esc(t.type)}</span></div>
-       <div>${esc(t.title)}</div><div class="m">→ ${t.modules.map(esc).join(", ")}</div></div>`).join("") || "<p class=m>No open tickets loaded.</p>";
+    el.innerHTML = D.open.filter(t => [t.key, t.title, t.assignee, t.status, t.epic].join(" ").toLowerCase().includes(q)).map(t =>
+      `<div class="t" data-k="${esc(t.key)}"><div class="k"><span class="chip" title="priority score" style="color:var(--ink);font-weight:600">${t.priority_score ?? "-"}</span>${esc(t.key)} <span class="chip">${esc(t.type)}</span>${t.status ? `<span class="chip">${esc(t.status)}</span>` : ""}${(t.overlaps||[]).some(c => c.level === "file") ? `<span class="chip" style="color:var(--hit)">collides</span>` : ""}</div>
+       <div>${esc(t.title)}</div><div class="m">→ ${t.modules.map(esc).join(", ")}${t.assignee ? " · " + esc(t.assignee) : ""}</div></div>`).join("") || "<p class=m>No open tickets loaded.</p>";
+    el.querySelectorAll(".t").forEach(x => x.onclick = () => showTicket(x.dataset.k));
+  } else if (tab === "col") {
+    // same-module overlaps are common and noisy; only same-file collisions are listed unless searched for
+    const rows = D.collisions.filter(c => (q ? true : c.level === "file") &&
+      (c.a + c.b + c.files.join(" ") + c.modules.join(" ")).toLowerCase().includes(q));
+    el.innerHTML = rows.map(c => `<div class="t" data-k="${esc(c.a)}"><div class="k">${esc(c.a)} ↔ ${esc(c.b)}
+       <span class="chip" style="color:${c.level === "file" ? "var(--hit)" : "var(--impact)"}">${c.level === "file" ? "same file" : "same module"}</span>
+       ${c.different_owners ? `<span class="chip">different assignees</span>` : ""}</div>
+       <div class="m">${(c.files.length ? c.files : c.modules).map(esc).join(", ")}</div></div>`).join("") || "<p class=m>No overlapping open tickets.</p>";
     el.querySelectorAll(".t").forEach(x => x.onclick = () => showTicket(x.dataset.k));
   } else {
     el.innerHTML = [...D.modules].sort((a,b)=>b.tickets-a.tickets).filter(m => m.id.toLowerCase().includes(q)).map(m =>
@@ -109,13 +120,18 @@ function showTicket(k){
   document.querySelectorAll(".t").forEach(x => x.classList.toggle("on", x.dataset.k === k));
   highlight(t.modules, t.impact);
   document.getElementById("detail").innerHTML = `<hr><h2>${t.url ? `<a href="${esc(t.url)}" target="_blank">${esc(t.key)}</a>` : esc(t.key)} ${esc(t.title)}</h2>
-   <div class="m">${esc(t.type)}${t.assignee ? " · " + esc(t.assignee) : ""}</div>
+   <div class="m">${[t.type, t.status, t.priority, t.assignee, t.epic ? "epic " + t.epic : "", (t.fix_versions||[]).join(", ")].filter(Boolean).map(esc).join(" · ")}</div>
+   ${t.priority_score != null ? `<h3>Priority ${t.priority_score}/100</h3><ul>${(t.priority_reasons||[]).map(r => `<li>${esc(r)}</li>`).join("") || "<li class=m>no strong signal</li>"}</ul>` : ""}
+   ${(t.overlaps||[]).length ? `<h3>Overlaps with open tickets</h3><ul>${t.overlaps.map(c => { const o = c.a === t.key ? c.b : c.a;
+     return `<li><a href="#" data-k="${esc(o)}" class="ov">${esc(o)}</a> · ${c.level === "file" ? "same file: " + c.files.map(esc).join(", ") : "same module: " + c.modules.map(esc).join(", ")}${c.different_owners ? " · different assignees" : ""}</li>`; }).join("")}</ul>` : ""}
+   ${(t.links||[]).length ? `<h3>Jira links</h3>${t.links.map(l => `<span class=chip>${esc(l.rel)} ${esc(l.key)}</span>`).join("")}` : ""}
    <h3>Lands in</h3>${t.modules.map(m => `<span class="chip" style="color:var(--hit)">${esc(m)}</span>`).join("")}
    <h3>Likely files</h3><ul>${t.files.map(f => `<li><code>${esc(f)}</code> ${(t.evidence[f]||[]).map(e=>`<span class=chip>${esc(e)}</span>`).join("")}</li>`).join("")}</ul>
    <h3>Impact area</h3>${t.impact.length ? t.impact.map(m => `<span class="chip" style="color:var(--impact)">${esc(m)}</span>`).join("") : "<span class=m>none found</span>"}
    <div class="m" style="margin-top:4px">Modules that import the landing modules, and modules historically fixed together with them.</div>
    <h3>Similar past tickets</h3>${t.similar.length ? t.similar.map(s => `<span class=chip>${esc(s)}</span>`).join("") : "<span class=m>none</span>"}
    ${owners(t.modules)}`;
+  document.querySelectorAll("a.ov").forEach(a => a.onclick = e => { e.preventDefault(); showTicket(a.dataset.k); });
 }
 function owners(mods){ const o = mods.map(m => byId[m]?.owners).filter(Boolean);
   return o.length ? `<h3>Owners</h3>${[...new Set(o)].map(esc).join(", ")}` : ""; }
@@ -135,8 +151,9 @@ function showModule(id){
    <h3>Changed together with</h3>${co.map(c => `<span class=chip style="color:var(--co)">${esc(c.a === id ? c.b : c.a)} · ${c.n}</span>`).join("") || "<span class=m>none</span>"}`;
 }
 document.getElementById("q").oninput = renderList;
-document.getElementById("tOpen").onclick = () => { tab="open"; tOpen.classList.add("on"); tMod.classList.remove("on"); renderList(); };
-document.getElementById("tMod").onclick = () => { tab="mod"; tMod.classList.add("on"); tOpen.classList.remove("on"); renderList(); };
+const tabs = {tOpen: "open", tCol: "col", tMod: "mod"};
+Object.entries(tabs).forEach(([id, name]) => document.getElementById(id).onclick = () => {
+  tab = name; Object.keys(tabs).forEach(b => document.getElementById(b).classList.toggle("on", b === id)); renderList(); });
 renderList();
 </script></body></html>"""
 

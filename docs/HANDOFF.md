@@ -4,6 +4,16 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (19) · Task Jira trên bản đồ: chồng chéo + ưu tiên có lý do
+
+- Jira: ticket mở kèm status, priority, assignee, epic, links (blocks/relates), fix version. `ticket_impact` nhận được mã Jira (đọc ticket qua `JIRA_URL`).
+- **Chồng chéo:** cặp ticket mở cùng file (trong top 3 file mỗi bên) = va chạm; cùng module = chồng nhẹ (ẩn mặc định vì nhiễu). Kafka 60 ticket: 333 cặp, **27 cùng file** (vd KAFKA-21591 ↔ KAFKA-21592 `ShareGroupCommand.java`, khác người làm).
+- **Ưu tiên 0–100 có lý do:** 50% Jira (priority, bug, blocks, fix version) + 50% code (module bị import bởi bao nhiêu module, tỉ lệ bug của module, va chạm cùng file). Kafka: đầu bảng là bug `clients` gắn 4.5.0 (63), cuối là dọn build (5).
+- MCP mới: `rank_tickets(repo, jql | github)`.
+- **Chưa kiểm chứng điểm ưu tiên.** Cách đo: trên lịch sử, điểm (bỏ phần priority Jira) có dự đoán được ticket nào được sửa sớm / bị reopen / gây bug sau không.
+
+---
+
 ## 2026-11-24 (18) · Change map tích hợp vào hệ thống (code của mình, không lấy của Archify/Floorplan)
 
 - Lõi chung `map/build.py`: `structure()` (module, import, co-change, lịch sử; cache theo commit) + `impact()` (rơi vào đâu, lan tới đâu, lý do). Dùng bởi: trang HTML, MCP `ticket_impact`, reviewer của đội (`--impact`, tắt mặc định tới khi đo).

@@ -26,7 +26,8 @@ Cursor / other clients: command `uv`, args `--directory /path/to/crewline run cr
 | `locate_files(ticket, repo)` | Files most likely to change, with evidence (signals, similar past tickets) |
 | `team_memory(paths)` | Lessons from past code reviews of those files, filtered by your repo access |
 | `triage_ticket(ticket, repo)` | Zero-token routing: likely module(s), file to open first, CODEOWNERS owners |
-| `ticket_impact(ticket, repo)` | Where a ticket lands and where the change spreads: importers and modules fixed together, with reasons |
+| `ticket_impact(ticket, repo)` | Where a ticket (text or Jira key) lands and where the change spreads, with reasons |
+| `rank_tickets(repo, jql \| github)` | Too many open tickets: priority order with reasons, and same-file collisions between them |
 
 Environment: `JIRA_URL`, `JIRA_TOKEN` (Data Center PAT, or Cloud API token with `JIRA_USER`), `CREWLINE_DATA`
 (cache folder), `CREWLINE_CLIS` (which agent CLIs Crewline itself may drive; default `agy`).
@@ -40,6 +41,10 @@ showing how the codebase is wired and where the work lands.
   team had to fix together.
 - Open tickets from Jira (JQL) or GitHub issues, each placed on its module with the likely files, the impact
   area (who imports it, what is usually fixed with it), similar past tickets and owners.
+- A priority score per open ticket (0-100) with its reasons: half from Jira (priority, bug, blocks, release),
+  half from the code (how far a change spreads, how bug-prone the module is, same-file collisions). Not yet
+  validated against outcomes; use the reasons, not the number.
+- Same-file collisions between open tickets, so two people do not edit the same code blind.
 - The same impact data is what `ticket_impact` returns over MCP and what the crew reviewer can check against
   (`crewline crew solve --impact`), so people and agents look at one picture.
 

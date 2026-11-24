@@ -117,12 +117,24 @@ def load_history(repo: Path, jira_url: str | None = None) -> list[dict]:
 def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
     from crewline.sources.jira import Jira
     out = []
-    for issue in Jira(url).search(jql, fields="summary,description,issuetype,priority,updated,assignee"):
+    fields = "summary,description,issuetype,priority,updated,assignee,status,parent,issuelinks,fixVersions"
+    for issue in Jira(url).search(jql, fields=fields):
         f = issue["fields"]
+        links = []
+        for lk in f.get("issuelinks") or []:
+            other = lk.get("outwardIssue") or lk.get("inwardIssue") or {}
+            rel = (lk.get("type") or {}).get("outward" if "outwardIssue" in lk else "inward")
+            if other.get("key"):
+                links.append({"rel": rel, "key": other["key"]})
+        parent = f.get("parent") or {}
         out.append({"key": issue["key"], "title": f.get("summary") or "",
                     "text": f"{f.get('summary') or ''}\n{f.get('description') or ''}",
                     "type": (f.get("issuetype") or {}).get("name"), "url": f"{url.rstrip('/')}/browse/{issue['key']}",
-                    "assignee": (f.get("assignee") or {}).get("displayName")})
+                    "assignee": (f.get("assignee") or {}).get("displayName"),
+                    "status": (f.get("status") or {}).get("name"),
+                    "priority": (f.get("priority") or {}).get("name"),
+                    "epic": parent.get("key"), "links": links,
+                    "fix_versions": [v.get("name") for v in f.get("fixVersions") or []]})
         if len(out) >= n:
             break
     return out
@@ -236,13 +248,92 @@ def impact_markdown(r: dict) -> str:
     return "\n".join(lines)
 
 
+def ranked_tickets(repo: Path, open_tickets: list[dict], limit: int = 20) -> str:
+    """Markdown: open tickets ordered by priority score, with reasons and collisions (MCP `rank_tickets`)."""
+    data = build(repo, load_history(repo), open_tickets, repo.name)
+    lines = ["| # | Score | Ticket | Lands in | Why |", "|---|---|---|---|---|"]
+    for i, t in enumerate(data["open"][:limit], 1):
+        lines.append(f"| {i} | {t['priority_score']} | {t['key']} {t['title'][:60]} | {', '.join(t['modules'])} | "
+                     f"{'; '.join(t['priority_reasons']) or '-'} |")
+    files = [c for c in data["collisions"] if c["level"] == "file"]
+    if files:
+        lines += ["", "**Same-file collisions:**"]
+        lines += [f"- {c['a']} ↔ {c['b']}: {', '.join(c['files'])}" + (" (different assignees)"
+                  if c["different_owners"] else "") for c in files[:10]]
+    return "\n".join(lines)
+
+
 def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str = "") -> dict:
     """The map page's data: the shared structure plus every open ticket's impact."""
     repo = repo.resolve()
     struct = structure(repo, history, refresh=True)
-    keep = ("key", "title", "type", "url", "assignee")
+    keep = ("key", "title", "type", "url", "assignee", "status", "priority", "epic", "links", "fix_versions")
     open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, t["text"], struct)} for t in open_tickets]
+    collisions = overlaps(open_out)
+    for t in open_out:
+        t["overlaps"] = [c for c in collisions if t["key"] in (c["a"], c["b"])]
+    prioritize(open_out, struct)
+    open_out.sort(key=lambda t: -t["priority_score"])
     return {"title": title or repo.name, "modules": struct["modules"],
             "imports": [e for e in struct["imports"] if e["n"] >= 2],
             "cochange": [c for c in struct["cochange"] if c["n"] >= 3],
-            "open": open_out, "history_tickets": struct["history_tickets"]}
+            "open": open_out, "collisions": collisions, "history_tickets": struct["history_tickets"]}
+
+
+JIRA_PRIORITY = {"blocker": 1.0, "highest": 1.0, "critical": 0.8, "high": 0.6, "major": 0.5, "medium": 0.4,
+                 "minor": 0.2, "low": 0.2, "trivial": 0.0, "lowest": 0.0}
+
+
+def prioritize(tickets: list[dict], struct: dict) -> None:
+    """Transparent priority score (0-100) with reasons. Half from what people said in Jira (priority, bug, what it
+    blocks, release), half from the code (how far a change there spreads, how bug-prone the module is, whether
+    another open ticket touches the same files). A ranking aid, not a verdict: the reasons are the point."""
+    by_id = {m["id"]: m for m in struct["modules"]}
+    importers: Counter = Counter()
+    for e in struct["imports"]:
+        importers[e["target"]] += 1
+    max_imp = max(importers.values() or [1])
+    for t in tickets:
+        reasons = []
+        pr = JIRA_PRIORITY.get((t.get("priority") or "").lower(), 0.4)
+        is_bug = (t.get("type") or "").lower() == "bug"
+        blocks = sum(1 for lk in t.get("links") or [] if (lk.get("rel") or "").lower() == "blocks")
+        human = 0.5 * pr + 0.25 * is_bug + 0.15 * min(blocks, 3) / 3 + 0.10 * bool(t.get("fix_versions"))
+        if t.get("priority"):
+            reasons.append(f"{t['priority']} in Jira")
+        if is_bug:
+            reasons.append("bug")
+        if blocks:
+            reasons.append(f"blocks {blocks} ticket{'s' * (blocks > 1)}")
+        if t.get("fix_versions"):
+            reasons.append(f"targeted for {', '.join(t['fix_versions'][:2])}")
+        land = t["modules"][0] if t["modules"] else None
+        m = by_id.get(land, {})
+        spread = importers.get(land, 0) / max_imp if land else 0
+        bug_share = m.get("bug_share", 0)
+        file_hits = sum(1 for c in t.get("overlaps") or [] if c["level"] == "file")
+        code = 0.45 * spread + 0.35 * min(bug_share / 0.5, 1) + 0.20 * min(file_hits, 2) / 2
+        if land and importers.get(land):
+            reasons.append(f"lands in {land}, imported by {importers[land]} modules")
+        if bug_share >= 0.3:
+            reasons.append(f"{round(bug_share * 100)}% of past fixes in {land} were bugs")
+        if file_hits:
+            reasons.append(f"same files as {file_hits} other open ticket{'s' * (file_hits > 1)}")
+        t["priority_score"] = round(100 * (0.5 * human + 0.5 * code))
+        t["priority_reasons"] = reasons
+
+
+def overlaps(tickets: list[dict], top_files: int = 3) -> list[dict]:
+    """Open tickets that will touch the same code: a shared likely file (among each one's top 3) is a collision,
+    a shared landing module is a softer overlap. Assigned to different people = worth a conversation."""
+    out = []
+    for a, b in combinations(tickets, 2):
+        files = sorted(set(a["files"][:top_files]) & set(b["files"][:top_files]))
+        mods = sorted(set(a["modules"][:1]) & set(b["modules"][:1]))
+        if not files and not mods:
+            continue
+        out.append({"a": a["key"], "b": b["key"], "files": files, "modules": mods,
+                    "level": "file" if files else "module",
+                    "different_owners": bool(a.get("assignee") and b.get("assignee")
+                                             and a["assignee"] != b["assignee"])})
+    return sorted(out, key=lambda c: (c["level"] != "file", -len(c["files"])))

@@ -6,6 +6,7 @@ Tools
 - team_memory:   lessons from past code reviews pinned to the given files, filtered by what the caller may read.
 - triage_ticket: zero-token routing: module(s) a ticket belongs to, file to open first, owners (CODEOWNERS).
 - ticket_impact: where a ticket lands and where the change spreads (importers, modules fixed together).
+- rank_tickets:  many open tickets -> priority order with reasons, plus same-file collisions between them.
 
 Everything is read-only. Jira credentials come from the environment (JIRA_URL, JIRA_TOKEN, JIRA_USER); GitHub
 access goes through the user's own `gh` login, so memory ACL equals that user's repo access.
@@ -94,16 +95,43 @@ def triage_ticket(ticket: str, repo: str, top_modules: int = 3) -> str:
 
 
 @mcp.tool()
-def ticket_impact(ticket: str, repo: str) -> str:
+def ticket_impact(ticket: str, repo: str) -> str:  # ticket: text or a Jira key like PROJ-123
     """Before changing code for a ticket: where it lands (modules, likely files with evidence) and the impact
     area to check (modules that import those modules, and modules the team historically had to fix together with
     them), plus similar past tickets and owners. No model calls; uses the repo's cached structure."""
+    import re
+
     from crewline.map import build
 
     p = Path(repo)
     if not (p / ".git").exists():
         return f"{repo} is not a git checkout."
-    return build.impact_markdown(build.impact(p, ticket))
+    text = ticket
+    if re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", ticket.strip()) and os.environ.get("JIRA_URL"):
+        from crewline.sources.jira import Jira  # a Jira key: read the ticket itself
+        f = Jira(os.environ["JIRA_URL"]).issue(ticket.strip(), fields="summary,description")["fields"]
+        text = f"{f.get('summary') or ''}\n{f.get('description') or ''}"
+    return build.impact_markdown(build.impact(p, text))
+
+
+@mcp.tool()
+def rank_tickets(repo: str, jql: str | None = None, github: str | None = None, limit: int = 20) -> str:
+    """Too many open tickets? Rank them by a transparent priority score (0-100) with the reasons: Jira priority,
+    bug, what it blocks, release target, how far a change there spreads, how bug-prone the module is, and
+    same-file collisions with other open tickets. Give `jql` (uses env JIRA_URL) or `github` (owner/name).
+    A ranking aid for planning; the reasons matter more than the number. No model calls."""
+    from crewline.map import build
+
+    p = Path(repo)
+    if not (p / ".git").exists():
+        return f"{repo} is not a git checkout."
+    if jql and os.environ.get("JIRA_URL"):
+        opened = build.open_tickets_jira(os.environ["JIRA_URL"], jql, 100)
+    elif github:
+        opened = build.open_tickets_github(github, 100)
+    else:
+        return "Give jql (with JIRA_URL set) or github=owner/name."
+    return build.ranked_tickets(p, opened, limit)
 
 
 def main() -> None:
