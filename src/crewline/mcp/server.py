@@ -5,6 +5,7 @@ Tools
 - locate_files:  ticket text -> files most likely to change in a git repo, with the evidence for each.
 - team_memory:   lessons from past code reviews pinned to the given files, filtered by what the caller may read.
 - triage_ticket: zero-token routing: module(s) a ticket belongs to, file to open first, owners (CODEOWNERS).
+- ticket_impact: where a ticket lands and where the change spreads (importers, modules fixed together).
 
 Everything is read-only. Jira credentials come from the environment (JIRA_URL, JIRA_TOKEN, JIRA_USER); GitHub
 access goes through the user's own `gh` login, so memory ACL equals that user's repo access.
@@ -90,6 +91,19 @@ def triage_ticket(ticket: str, repo: str, top_modules: int = 3) -> str:
     if not (p / ".git").exists():
         return f"{repo} is not a git checkout."
     return engine.triage(p, ticket, top_modules)
+
+
+@mcp.tool()
+def ticket_impact(ticket: str, repo: str) -> str:
+    """Before changing code for a ticket: where it lands (modules, likely files with evidence) and the impact
+    area to check (modules that import those modules, and modules the team historically had to fix together with
+    them), plus similar past tickets and owners. No model calls; uses the repo's cached structure."""
+    from crewline.map import build
+
+    p = Path(repo)
+    if not (p / ".git").exists():
+        return f"{repo} is not a git checkout."
+    return build.impact_markdown(build.impact(p, ticket))
 
 
 def main() -> None:

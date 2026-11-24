@@ -226,8 +226,8 @@ def run(name: str, mode: str, limit: int | None = None) -> dict:
         t0 = time.time()
         base_mode, _, extra = mode.partition("+")   # e.g. "solo:agy:gemini-4-neon-high+map"
         use_map = extra == "map"
-        if base_mode == "crew":
-            crew = team.Crew(base_wt, bf, gate_command(name), codemap=use_map)
+        if base_mode == "crew":   # "crew+impact": the reviewer gets the change-map impact checklist
+            crew = team.Crew(base_wt, bf, gate_command(name), codemap=use_map, impact=extra == "impact")
             report = crew.run()
             crew.cleanup()
         else:

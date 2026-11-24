@@ -40,7 +40,8 @@ def pick_source(repo: Path, since: str, jira_url: str | None) -> tuple[str, str 
     return "commits", None, "no ticket keys and no GitHub remote: commit messages stand in for tickets (optimistic)"
 
 
-def run(repo: Path, since: str = "2024-01-01", jira_url: str | None = None, max_tickets: int = 400) -> dict:
+def run(repo: Path, since: str = "2024-01-01", jira_url: str | None = None, max_tickets: int = 400,
+        jql: str | None = None, open_n: int = 60) -> dict:
     repo = repo.resolve()
     if not (repo / ".git").exists():
         raise SystemExit(f"{repo} is not a git checkout")
@@ -62,8 +63,23 @@ def run(repo: Path, since: str = "2024-01-01", jira_url: str | None = None, max_
         "module_top1": cal.get("triage_test", {}).get("top1"),
         "module_top3": cal.get("triage_test", {}).get("top3"),
         "signals_on": [k for k, v in cal.get("calibrated_weights", {}).items() if v],
-        "optimistic": cal.get("optimistic", False), "seconds": round(time.time() - t0),
+        "optimistic": cal.get("optimistic", False),
     }
+    # Change map from the same history and the same ticket source (open work placed on it).
+    from crewline.map import build as cmap
+    from crewline.map import render
+    if jira_url and jql:
+        opened = cmap.open_tickets_jira(jira_url, jql, open_n)
+    elif source == "github" and slug:
+        opened = cmap.open_tickets_github(slug, open_n)
+    else:
+        opened = []
+    page = data_dir() / "maps" / f"{repo.name}.html"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    data = cmap.build(repo, cmap.load_history(repo, jira_url), opened, repo.name)
+    render.render(data, page)
+    summary.update(map=str(page), open_tickets=len(opened), modules=len(data["modules"]),
+                   seconds=round(time.time() - t0))
     (data_dir() / "index" / repo.name / "setup.json").write_text(json.dumps(summary, indent=2))
     return summary
 
@@ -92,6 +108,8 @@ def report(s: dict) -> str:
             lines.append("  note          : scored on commit messages written after the fix -> optimistic")
     else:
         lines.append(f"  calibration   : skipped ({s['verdict']}); default weights will be used")
+    if s.get("map"):
+        lines.append(f"  change map    : {s['map']}  ({s['modules']} modules, {s['open_tickets']} open tickets placed)")
     lines.append("")
     lines.append("Add the MCP server to your agent:")
     for name, cfg in mcp_config(Path(__file__).resolve().parents[2]).items():

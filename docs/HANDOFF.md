@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (18) · Change map tích hợp vào hệ thống (code của mình, không lấy của Archify/Floorplan)
+
+- Lõi chung `map/build.py`: `structure()` (module, import, co-change, lịch sử; cache theo commit) + `impact()` (rơi vào đâu, lan tới đâu, lý do). Dùng bởi: trang HTML, MCP `ticket_impact`, reviewer của đội (`--impact`, tắt mặc định tới khi đo).
+- `crewline setup` dựng luôn bản đồ từ cùng nguồn ticket (GitHub issues mở / Jira `--jql`). laya: 34 s, 23 module, 53 issue mở.
+- Ví dụ #1493 (laya): impact chỉ ra `laya` ("fixed with laya-ts in 6 past tickets") — đúng module của bản sửa thật.
+- Sửa lỗi cũ: REVIEW_PROMPT có `{{ }}` thừa (không qua format).
+- Kafka: `crewline map` 49 module, 115 import, 225 co-change, 60 ticket mở. Chưa kiểm tra hiển thị bằng trình duyệt (extension Chrome chưa kết nối) — chờ owner mở.
+
+**Bước kế:** owner xem `D:/crewline-data/maps/kafka.html` + `laya.html`; đo `--impact` cho reviewer (click solve, crew vs crew+impact); pilot (cần owner).
+
+---
+
 ## 2026-11-24 (17) · `crewline setup` + demo; sửa lịch sử cho repo GitHub; triage 0.768
 
 - `crewline setup --repo`: tự chọn nguồn ticket (mã Jira / PR GitHub / commit), calibrate, dựng chỉ mục, in số đo trên repo + cấu hình MCP (Claude Code, Codex, Cursor). laya: ~1 phút.

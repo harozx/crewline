@@ -30,7 +30,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
-ignore = ["B008"]  # typer.Option defaults are the typer idiom
+ignore = ["B008"]
+per-file-ignores = { "src/crewline/map/render.py" = ["E501"] }  # HTML/JS template  # typer.Option defaults are the typer idiom
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

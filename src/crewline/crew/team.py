@@ -42,8 +42,10 @@ Make the change directly in the repository. Keep it minimal and in the project's
 {feedback}"""
 
 REVIEW_PROMPT = """Review the change in review.diff against the ticket in brief.md. You may read the repository.
-Reply with JSON only: {{"verdict": "approve" | "changes", "issues": ["concrete problem and where"]}}.
-Approve unless there is a real bug, a missed requirement, or a change outside the ticket's scope."""
+Reply with JSON only: {"verdict": "approve" | "changes", "issues": ["concrete problem and where"]}.
+Approve unless there is a real bug, a missed requirement, or a change outside the ticket's scope.
+If impact.md exists, it lists modules that import the changed code or were historically fixed together with it:
+flag only concrete breakage or a required matching change there, not speculation."""
 
 
 @dataclass
@@ -113,9 +115,13 @@ def _json(text: str) -> dict:
 
 class Crew:
     def __init__(self, repo: Path, brief: Path, gate: str | None, locate_md: str = "", max_tasks: int = 4,
-                 lead: Choice | None = None, picker=pick, codemap: bool = False):
+                 lead: Choice | None = None, picker=pick, codemap: bool = False, impact: bool = False):
         self.repo = repo.resolve()
         self.brief_text = brief.read_text(encoding="utf-8")
+        self.impact_md = ""
+        if impact:   # reviewer checklist from the shared change-map core (opt-in until measured)
+            from crewline.map import build as cmap
+            self.impact_md = cmap.impact_markdown(cmap.impact(self.repo, self.brief_text))
         self.codemap_text = ""
         if codemap:
             from crewline.memory.codemap import build
@@ -140,7 +146,7 @@ class Crew:
             (wt / "codemap.md").write_text(self.codemap_text, encoding="utf-8")
 
     def _unseed(self, wt: Path) -> None:
-        for name in ("brief.md", "locate.md", "review.diff", "codemap.md"):
+        for name in ("brief.md", "locate.md", "review.diff", "codemap.md", "impact.md"):
             (wt / name).unlink(missing_ok=True)
 
     def _worktree(self, name: str, start: str) -> Path:
@@ -218,6 +224,8 @@ class Crew:
             return
         self._seed(wt)
         (wt / "review.diff").write_text(diff, encoding="utf-8")
+        if self.impact_md:
+            (wt / "impact.md").write_text(self.impact_md, encoding="utf-8")
         verdict: dict = {}
         for choice in self.pick("heavy", avoid_vendor=writer_vendor)[:2]:   # a stuck reviewer must not stall the run
             res = self._call(task.id, "review", choice, REVIEW_PROMPT, wt, False, timeout=300)
