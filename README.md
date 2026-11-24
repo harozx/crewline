@@ -26,9 +26,22 @@ Cursor / other clients: command `uv`, args `--directory /path/to/crewline run cr
 | `locate_files(ticket, repo)` | Files most likely to change, with evidence (signals, similar past tickets) |
 | `team_memory(paths)` | Lessons from past code reviews of those files, filtered by your repo access |
 | `triage_ticket(ticket, repo)` | Zero-token routing: likely module(s), file to open first, CODEOWNERS owners |
+| `ticket_impact(ticket, repo)` | Where a ticket lands and where the change spreads: importers and modules fixed together, with reasons |
 
 Environment: `JIRA_URL`, `JIRA_TOKEN` (Data Center PAT, or Cloud API token with `JIRA_USER`), `CREWLINE_DATA`
 (cache folder), `CREWLINE_CLIS` (which agent CLIs Crewline itself may drive; default `agy`).
+
+## Change map
+
+`crewline setup` also writes a change map (`<data>/maps/<repo>.html`, or `crewline map` on its own): one page
+showing how the codebase is wired and where the work lands.
+
+- Modules sized by past tickets and coloured by bug share; arrows are imports, dashed lines are modules the
+  team had to fix together.
+- Open tickets from Jira (JQL) or GitHub issues, each placed on its module with the likely files, the impact
+  area (who imports it, what is usually fixed with it), similar past tickets and owners.
+- The same impact data is what `ticket_impact` returns over MCP and what the crew reviewer can check against
+  (`crewline crew solve --impact`), so people and agents look at one picture.
 
 ## Benchmarks
 

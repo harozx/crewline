@@ -141,16 +141,24 @@ def open_tickets_github(slug: str, n: int = 60) -> list[dict]:
     return out
 
 
-def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str = "") -> dict:
-    """history: [{key, text, files, type?, date?, url?}] (fixed tickets). Returns the JSON the page renders."""
+# ---- shared core: structure (cached per commit) and per-ticket impact ---------------------------------------------
+
+def structure(repo: Path, history: list[dict] | None = None, refresh: bool = False) -> dict:
+    """Modules with their work history, import edges and co-change pairs, cached per HEAD commit. Used by the map
+    page, the `ticket_impact` MCP tool and the crew reviewer, so all three see the same picture."""
+    from crewline.config import data_dir
     repo = repo.resolve()
+    out = data_dir() / "index" / repo.name / f"structure-{git.head(repo)[:10]}.json"
+    if out.exists() and not refresh:
+        return json.loads(out.read_text(encoding="utf-8"))
+    history = history if history is not None else load_history(repo)
     files = [p for p in git.ls_tree(repo, "HEAD") if baseline.is_code(p)]
     file_count = Counter(module(f) for f in files)
     imports = import_edges(repo, files)
 
-    tickets_per = Counter()
-    bugs_per = Counter()
-    recent_per = Counter()
+    tickets_per: Counter = Counter()
+    bugs_per: Counter = Counter()
+    recent_per: Counter = Counter()
     hot_files: dict[str, Counter] = defaultdict(Counter)
     examples: dict[str, list] = defaultdict(list)
     cochange: Counter = Counter()
@@ -170,43 +178,71 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
             cochange[(a, b)] += 1
 
     owners = engine._codeowners(repo)
-    modules = sorted(set(file_count) | set(tickets_per))
     nodes = []
-    for m in modules:
+    for m in sorted(set(file_count) | set(tickets_per)):
         who = next((o for pat, o in reversed(owners) if pat and m.startswith(pat)), None)
         nodes.append({"id": m, "files": file_count[m], "tickets": tickets_per[m],
                       "bug_share": round(bugs_per[m] / tickets_per[m], 2) if tickets_per[m] else 0,
                       "recent": recent_per[m], "owners": who,
                       "hot_files": [f for f, _ in hot_files[m].most_common(6)], "examples": examples[m]})
+    data = {"modules": nodes, "history_tickets": len(history),
+            "imports": [{"source": a, "target": b, "n": n} for (a, b), n in imports.items()],
+            "cochange": [{"a": a, "b": b, "n": n} for (a, b), n in cochange.items()]}
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data), encoding="utf-8")
+    return data
 
-    deps_out: dict[str, Counter] = defaultdict(Counter)
+
+def impact(repo: Path, text: str, struct: dict | None = None) -> dict:
+    """Where a ticket lands (files, modules) and where it spreads: modules importing the landing modules and
+    modules historically fixed together with them. No model calls."""
+    struct = struct or structure(repo)
     deps_in: dict[str, Counter] = defaultdict(Counter)
-    for (a, b), n in imports.items():
-        deps_out[a][b] += n
-        deps_in[b][a] += n
+    for e in struct["imports"]:
+        deps_in[e["target"]][e["source"]] += e["n"]
     co: dict[str, Counter] = defaultdict(Counter)
-    for (a, b), n in cochange.items():
-        co[a][b] += n
-        co[b][a] += n
+    for c in struct["cochange"]:
+        co[c["a"]][c["b"]] += c["n"]
+        co[c["b"]][c["a"]] += c["n"]
+    hits = engine.locate(repo, text, top=10, use_agent=False)
+    top_files = [h.path for h in hits]
+    mods = rank_modules(top_files)[:2]
+    spread: Counter = Counter()
+    reasons: dict[str, list[str]] = defaultdict(list)
+    for m in mods:
+        for dep, n in deps_in[m].most_common(4):
+            spread[dep] += n
+            reasons[dep].append(f"imports {m}")
+        for c, n in co[m].most_common(3):
+            spread[c] += n * 5
+            reasons[c].append(f"fixed with {m} in {n} past tickets")
+    by_id = {m["id"]: m for m in struct["modules"]}
+    area = [m for m, _ in spread.most_common(8) if m not in mods][:6]
+    return {"modules": mods, "files": top_files[:6], "evidence": {h.path: h.found_by for h in hits[:6]},
+            "similar": sorted({s for h in hits[:3] for s in h.similar_tickets})[:5],
+            "impact": area, "impact_reasons": {m: reasons[m] for m in area},
+            "owners": sorted({by_id[m]["owners"] for m in mods + area if by_id.get(m, {}).get("owners")})}
 
-    open_out = []
-    for t in open_tickets:
-        hits = engine.locate(repo, t["text"], top=10, use_agent=False)
-        top_files = [h.path for h in hits]
-        mods = rank_modules(top_files)[:2]
-        impact = Counter()
-        for m in mods:
-            for dep, n in deps_in[m].most_common(4):
-                impact[dep] += n
-            for c, n in co[m].most_common(3):
-                impact[c] += n * 5
-        open_out.append({**{k: t.get(k) for k in ("key", "title", "type", "url", "assignee")},
-                         "modules": mods, "files": top_files[:6],
-                         "evidence": {h.path: h.found_by for h in hits[:6]},
-                         "similar": sorted({s for h in hits[:3] for s in h.similar_tickets})[:5],
-                         "impact": [m for m, _ in impact.most_common(6) if m not in mods]})
 
-    return {"title": title or repo.name, "modules": nodes,
-            "imports": [{"source": a, "target": b, "n": n} for (a, b), n in imports.items() if n >= 2],
-            "cochange": [{"a": a, "b": b, "n": n} for (a, b), n in cochange.items() if n >= 3],
-            "open": open_out, "history_tickets": len(history)}
+def impact_markdown(r: dict) -> str:
+    lines = ["**Lands in:** " + ", ".join(f"`{m}`" for m in r["modules"]), "", "**Likely files:**"]
+    lines += [f"- `{f}` ({', '.join(r['evidence'].get(f, []))})" for f in r["files"]]
+    lines += ["", "**Impact area** (check these when changing the code above):"]
+    lines += [f"- `{m}`: {'; '.join(r['impact_reasons'][m])}" for m in r["impact"]] or ["- none found"]
+    if r["similar"]:
+        lines += ["", "**Similar past tickets:** " + ", ".join(r["similar"])]
+    if r["owners"]:
+        lines += ["", "**Owners:** " + ", ".join(r["owners"])]
+    return "\n".join(lines)
+
+
+def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str = "") -> dict:
+    """The map page's data: the shared structure plus every open ticket's impact."""
+    repo = repo.resolve()
+    struct = structure(repo, history, refresh=True)
+    keep = ("key", "title", "type", "url", "assignee")
+    open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, t["text"], struct)} for t in open_tickets]
+    return {"title": title or repo.name, "modules": struct["modules"],
+            "imports": [e for e in struct["imports"] if e["n"] >= 2],
+            "cochange": [c for c in struct["cochange"] if c["n"] >= 3],
+            "open": open_out, "history_tickets": struct["history_tickets"]}
