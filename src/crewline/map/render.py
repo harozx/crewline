@@ -27,7 +27,15 @@ cursor:pointer;font:inherit;font-size:12.5px}.btn:hover{background:var(--soft)}.
 .card:hover{border-color:var(--line)}.card .n{font-size:22px;font-weight:650;line-height:1.1}.card .l{color:var(--muted);font-size:12px}
 .card .t{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 440px;min-height:0}
-#graph{position:relative;min-height:0}svg{width:100%;height:100%;display:block}
+#graph{position:relative;min-height:0}#graph>svg{width:100%;height:100%;display:block}
+#logic{position:absolute;inset:0;overflow:auto;padding:58px 22px 60px;background:var(--bg)}#logic[hidden]{display:none}
+.lwrap{position:relative;min-width:640px;max-width:1100px}.lcols{display:grid;gap:56px;position:relative;z-index:1}
+.lcol h4{margin:0 0 8px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+.lbox{background:var(--panel);border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;margin-bottom:12px;font-size:12.5px;
+box-shadow:var(--shadow);cursor:pointer}.lbox.hit{border-color:var(--hit)}.lbox.imp{border-color:var(--impact)}.lbox.main{border-color:var(--ink)}
+.lbox .why{color:var(--muted);font-size:11.5px;margin-top:2px}.lbox b{font-weight:600}
+svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:0}
+.lempty{color:var(--muted);text-align:center;margin-top:20vh}
 .gtools{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap}
 .legend{position:absolute;left:12px;bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;
 padding:6px 10px;font-size:11.5px;color:var(--muted);box-shadow:var(--shadow);display:flex;gap:12px;flex-wrap:wrap}
@@ -60,7 +68,7 @@ ul{margin:0;padding-left:18px}li{margin:2px 0}a{color:var(--co)}
 </style></head><body>
 <header><div class="top"><h1>__TITLE__</h1><span class="sub" id="sub"></span><span class="sp"></span>
 <button class="btn" id="lang">English</button></div><div class="cards" id="cards"></div></header>
-<main><div id="graph"><svg></svg><div class="gtools"><button class="btn" id="fit"></button><button class="btn" id="allLinks"></button></div>
+<main><div id="graph"><svg></svg><div id="logic" hidden></div><div class="gtools"><button class="btn on" id="vGraph"></button><button class="btn" id="vLogic"></button><button class="btn" id="fit"></button><button class="btn" id="allLinks"></button></div>
 <div class="legend" id="legend"></div></div>
 <aside><div class="side-top"><input id="q"><div class="tabs" id="tabs"></div><div class="filters" id="filters"></div></div>
 <div class="scroll" id="list"></div><div id="detail"></div></aside></main>
@@ -70,7 +78,7 @@ const D = __DATA__;
 const T = {
  vi:{search:"Tìm ticket, người, module…",work:"Việc cần làm",parents:"Epic / task cha",col:"Đâm nhau",mods:"Module",
   open:"việc đang mở",due:"quá hạn / sắp hạn",clash:"cặp sửa cùng file",first:"nên làm trước",bug:"Bug",dueF:"Có hạn",clashF:"Có va chạm",
-  fit:"Căn giữa",all:"Hiện liên kết chính",strong:"Ẩn liên kết",lands:"Ticket rơi vào",impactL:"Vùng ảnh hưởng",importL:"mũi tên = import",
+  fit:"Căn giữa",vGraph:"Đồ thị",vLogic:"Sơ đồ logic",pick:"Chọn một ticket, epic hoặc module để xem sơ đồ logic.",lTicket:"Ticket",lLands:"Rơi vào module",lFiles:"File cần sửa",lSpread:"Lan ảnh hưởng tới",lUsedBy:"Được dùng bởi",lModule:"Module",lDeps:"Phụ thuộc vào",lTogether:"Hay sửa cùng",lChildren:"Task con",all:"Hiện liên kết chính",strong:"Ẩn liên kết",lands:"Ticket rơi vào",impactL:"Vùng ảnh hưởng",importL:"mũi tên = import",
   coL:"nét đứt = hay sửa cùng nhau",sizeL:"to = nhiều ticket, đỏ = nhiều bug",why:"Vì sao ưu tiên",where:"Nằm ở",spread:"Lan ảnh hưởng tới",
   files:"File có khả năng phải sửa",people:"Người nắm phần code này",parent:"Task cha",siblings:"Task anh em đang mở",
   clashWith:"Sửa cùng file với",similar:"Rất giống (trùng hay task anh em?)",links:"Liên kết Jira",past:"Ticket cũ tương tự",
@@ -82,7 +90,7 @@ const T = {
   subtitle:(m,h,o)=>`${m} module · ${h} ticket đã sửa · ${o} ticket đang mở`},
  en:{search:"Search tickets, people, modules…",work:"To do",parents:"Epics / parents",col:"Collisions",mods:"Modules",
   open:"open tickets",due:"overdue / due soon",clash:"same-file pairs",first:"do first",bug:"Bugs",dueF:"Has deadline",clashF:"Collides",
-  fit:"Fit",all:"Show main links",strong:"Hide links",lands:"Ticket lands here",impactL:"Impact area",importL:"arrow = import",
+  fit:"Fit",vGraph:"Graph",vLogic:"Logic view",pick:"Pick a ticket, epic or module to see its logic view.",lTicket:"Ticket",lLands:"Lands in",lFiles:"Files to change",lSpread:"Spreads to",lUsedBy:"Used by",lModule:"Module",lDeps:"Depends on",lTogether:"Changed together with",lChildren:"Children",all:"Show main links",strong:"Hide links",lands:"Ticket lands here",impactL:"Impact area",importL:"arrow = import",
   coL:"dashed = changed together",sizeL:"size = tickets, red = bugs",why:"Why this priority",where:"Lands in",spread:"Spreads to",
   files:"Likely files",people:"People who know this code",parent:"Parent",siblings:"Open siblings",clashWith:"Same files as",
   similar:"Very similar (duplicate or sibling?)",links:"Jira links",past:"Similar past tickets",note:"Note for Jira",copy:"Copy note",
@@ -207,9 +215,76 @@ function renderList(){
     box.querySelectorAll(".item").forEach(x => x.onclick = () => showModule(x.dataset.m));
   }
 }
-function mark(attr, v){ document.querySelectorAll(".item").forEach(x => x.classList.toggle("on", x.dataset[attr] === v)); }
+function mark(attr, v){ document.querySelectorAll(".item").forEach(x => x.classList.toggle("on", !!attr && x.dataset[attr] === v)); }
+
+/* ---------- selection: clicking the same thing again, or empty space, clears it ---------- */
+let cur = null, view = "graph";
+function toggleSel(id){ if (cur === id) { clearSel(); return false; } cur = id; return true; }
+function clearSel(){ cur = null; mark(null); highlight([], []); el("detail").innerHTML = ""; drawLogic(); }
+svg.on("click", e => { if (e.target === svg.node()) clearSel(); });
+
+/* ---------- logic view: left-to-right boxes and arrows ---------- */
+const modOf = f => f.includes("/src/") ? f.split("/src/")[0] : (f.includes("/") ? f.split("/")[0] : "(root)");
+function drawLogic(){
+  const box = el("logic"); if (view !== "logic") return;
+  const [kind, id] = cur ? [cur.slice(0, 1), cur.slice(2)] : [null, null];
+  let cols = [], edges = [];
+  const B = (bid, cls, html, go) => ({bid, cls, html, go});
+  if (kind === "t") {
+    const o = byKey[id];
+    const t = [B("tk", "main", `<b>${esc(o.key)}</b> · ${esc(o.title)}<div class="why">${o.priority_score}/100${o.assignee ? " · " + esc(o.assignee) : ""}</div>`)];
+    if (o.parent) t.unshift(B("par", "", `↑ <b>${esc(o.parent)}</b> ${esc(o.parent_title || "")}`, `p:${o.parent}`));
+    if ((o.suggested_people||[]).length) t.push(B("ppl", "", `<div class="why">${esc(t_("people"))}</div>${o.suggested_people.map(esc).join(", ")}`));
+    // files sit inside their module's box: no line has to cross a column of files
+    const filesOf = m => o.files.slice(0, 6).filter(f => modOf(f) === m);
+    const fileLine = f => `<div class="why">• <b style="color:var(--ink)">${esc(f.split("/").pop())}</b>${(o.file_dependents||{})[f] ? ` · ${o.file_dependents[f]} ${esc(t_("imports"))}` : ""}</div>`;
+    const loose = o.files.slice(0, 6).filter(f => !o.modules.includes(modOf(f)));
+    const mods = o.modules.map((m, i) => B("m" + i, "hit", `<b>${esc(m)}</b>${filesOf(m).map(fileLine).join("")}`, `m:${m}`));
+    if (loose.length) mods.push(B("mx", "", `<div class="why">${esc(t_("lFiles"))}</div>${loose.map(fileLine).join("")}`));
+    const imp = o.impact.map((m, i) => B("i" + i, "imp", `<b>${esc(m)}</b><div class="why">${esc((o.impact_reasons[m]||[]).join("; "))}</div>`, `m:${m}`));
+    cols = [[t_("lTicket"), t], [t_("lLands"), mods], [t_("lSpread"), imp]];
+    if (o.parent) edges.push(["par", "tk"]);
+    mods.forEach(m => edges.push(["tk", m.bid]));
+    o.impact.forEach((m, i) => o.modules.forEach((lm, j) => { if ((o.impact_reasons[m]||[]).some(r => r.includes(lm))) edges.push(["m" + j, "i" + i]); }));
+  } else if (kind === "m") {
+    const inn = D.imports.filter(l => l.target === id).sort((a,b)=>b.n-a.n).slice(0, 8);
+    const out = D.imports.filter(l => l.source === id).sort((a,b)=>b.n-a.n).slice(0, 8);
+    const co = D.cochange.filter(c => c.a === id || c.b === id).sort((a,b)=>b.n-a.n).slice(0, 6);
+    const m = byId[id];
+    cols = [[t_("lUsedBy"), inn.map((l, i) => B("u" + i, "imp", `<b>${esc(l.source)}</b><div class="why">${l.n} imports</div>`, `m:${l.source}`))],
+      [t_("lModule"), [B("me", "main", `<b>${esc(id)}</b><div class="why">${m.tickets} ${esc(t_("pastT"))} · ${Math.round(m.bug_share*100)}% ${esc(t_("bugs"))}</div>`)]],
+      [t_("lDeps"), out.map((l, i) => B("d" + i, "", `<b>${esc(l.target)}</b><div class="why">${l.n} imports</div>`, `m:${l.target}`))],
+      [t_("lTogether"), co.map((c, i) => { const x = c.a === id ? c.b : c.a; return B("c" + i, "", `<b>${esc(x)}</b><div class="why">${c.n} ${esc(t_("pastT"))}</div>`, `m:${x}`); })]];
+    inn.forEach((l, i) => edges.push(["u" + i, "me"])); out.forEach((l, i) => edges.push(["me", "d" + i])); co.forEach((c, i) => edges.push(["me", "c" + i, "co"]));
+  } else if (kind === "p") {
+    const p = D.parents.find(x => x.key === id);
+    const kids = p.children.map((k, i) => { const o = byKey[k]; return B("k" + i, "", `<b>${esc(k)}</b> · ${esc(o.title)}<div class="why">${o.priority_score}/100 · ${esc(o.status || "")}</div>`, `t:${k}`); });
+    const mods = p.modules.map((m, i) => B("m" + i, "hit", `<b>${esc(m)}</b>`, `m:${m}`));
+    const imp = p.impact.map((m, i) => B("i" + i, "imp", `<b>${esc(m)}</b>`, `m:${m}`));
+    cols = [[t_("parent"), [B("pp", "main", `<b>${esc(p.key)}</b> · ${esc(p.title || "")}`)]], [t_("lChildren"), kids], [t_("lLands"), mods], [t_("lSpread"), imp]];
+    kids.forEach(k => edges.push(["pp", k.bid]));
+    p.children.forEach((k, i) => byKey[k].modules.forEach(m => { const j = p.modules.indexOf(m); if (j >= 0) edges.push(["k" + i, "m" + j]); }));
+    imp.forEach(x => mods.forEach(m => edges.push([m.bid, x.bid, "co"])));
+  } else { box.innerHTML = `<div class="lempty">${esc(t_("pick"))}</div>`; return; }
+  box.innerHTML = `<div class="lwrap"><svg class="lines"></svg><div class="lcols" style="grid-template-columns:repeat(${cols.length},minmax(150px,1fr))">${cols.map(([h, items]) =>
+    `<div class="lcol"><h4>${esc(h)}</h4>${items.map(b => `<div class="lbox ${b.cls}" id="lb-${b.bid}" ${b.go ? `data-go="${esc(b.go)}"` : ""}>${b.html}</div>`).join("") || `<div class="why">${esc(t_("none"))}</div>`}</div>`).join("")}</div></div>`;
+  box.querySelectorAll(".lbox[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
+  requestAnimationFrame(() => {
+    const wrap = box.querySelector(".lwrap"), sv = box.querySelector("svg.lines"), wr = wrap.getBoundingClientRect();
+    sv.innerHTML = `<defs><marker id="la" viewBox="0 -4 8 8" refX="8" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,-4L8,0L0,4" fill="var(--muted)"/></marker></defs>` +
+      edges.map(([a, b, k]) => { const A = el("lb-" + a), Z = el("lb-" + b); if (!A || !Z) return "";
+        const ra = A.getBoundingClientRect(), rz = Z.getBoundingClientRect();
+        const x1 = ra.right - wr.left, y1 = ra.top + ra.height / 2 - wr.top, x2 = rz.left - wr.left - 2, y2 = rz.top + rz.height / 2 - wr.top, mx = (x1 + x2) / 2;
+        return `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="${k === "co" ? "var(--co)" : "var(--muted)"}" stroke-width="1.4" ${k === "co" ? 'stroke-dasharray="4 3"' : ""} marker-end="url(#la)"/>`; }).join(""); });
+}
+function go(target){ const [k, v] = [target.slice(0, 1), target.slice(2)]; cur = null;
+  if (k === "t") showTicket(v); else if (k === "p") showParent(v); else showModule(v); }
+function setView(v){ view = v; el("logic").hidden = v !== "logic"; el("vGraph").classList.toggle("on", v === "graph"); el("vLogic").classList.toggle("on", v === "logic");
+  el("fit").style.display = el("allLinks").style.display = v === "graph" ? "" : "none"; drawLogic(); }
+
 function showTicket(k){
-  const o = byKey[k]; if (!o) return; mark("k", k); highlight(o.modules, o.impact);
+  if (!toggleSel("t:" + k)) return;
+  const o = byKey[k]; if (!o) return; mark("k", k); highlight(o.modules, o.impact); drawLogic();
   const sibs = o.parent ? D.open.filter(x => x.parent === o.parent && x.key !== o.key) : [];
   const clash = (o.overlaps||[]).filter(c => c.level === "file");
   el("detail").innerHTML = `<div class="d-h">${o.url ? `<a href="${esc(o.url)}" target="_blank">${esc(o.key)}</a>` : esc(o.key)} · ${esc(o.title)}</div>
@@ -231,7 +306,8 @@ function showTicket(k){
   wireLinks();
 }
 function showParent(pk){
-  const p = D.parents.find(x => x.key === pk); if (!p) return; mark("p", pk); highlight(p.modules, p.impact);
+  if (!toggleSel("p:" + pk)) return;
+  const p = D.parents.find(x => x.key === pk); if (!p) return; mark("p", pk); highlight(p.modules, p.impact); drawLogic();
   el("detail").innerHTML = `<div class="d-h">${esc(p.key)} · ${esc(p.title || "")}</div>
    <div class="meta"><span class="tag blue">${esc(p.kind)}</span>${p.status ? `<span class="tag">${esc(p.status)}</span>` : ""}</div>
    <div class="two"><div class="box"><h3>${t_("where")}</h3>${p.modules.map(m => `<span class="tag red">${esc(m)}</span>`).join("")}</div>
@@ -244,7 +320,8 @@ function showParent(pk){
 function wireLinks(){ document.querySelectorAll("a.go-k").forEach(a => a.onclick = e => { e.preventDefault(); showTicket(a.dataset.k); });
   document.querySelectorAll("a.go-p").forEach(a => a.onclick = e => { e.preventDefault(); setTab("parents"); showParent(a.dataset.p); }); }
 function showModule(id){
-  const m = byId[id]; if (!m) return; mark("m", id);
+  if (!toggleSel("m:" + id)) return;
+  const m = byId[id]; if (!m) return; mark("m", id); setTimeout(drawLogic);
   const out = D.imports.filter(l => l.source === id).sort((a,b)=>b.n-a.n).slice(0,6), inn = D.imports.filter(l => l.target === id).sort((a,b)=>b.n-a.n).slice(0,6);
   const co = D.cochange.filter(c => c.a === id || c.b === id).sort((a,b)=>b.n-a.n).slice(0,6);
   highlight([id], [...inn.map(l=>l.source), ...co.map(c => c.a === id ? c.b : c.a)]);
@@ -279,16 +356,20 @@ function i18n(){
     `<button class="btn ${tab === k ? "on" : ""}" data-t="${k}">${esc(l)}</button>`).join("");
   el("tabs").querySelectorAll(".btn").forEach(b => b.onclick = () => setTab(b.dataset.t));
   el("fit").textContent = t_("fit"); el("allLinks").textContent = showAll ? t_("strong") : t_("all");
+  el("vGraph").textContent = t_("vGraph"); el("vLogic").textContent = t_("vLogic");
   el("legend").innerHTML = `<span><i style="background:var(--hit)"></i>${t_("lands")}</span><span><i style="background:var(--impact)"></i>${t_("impactL")}</span>
     <span>→ ${t_("importL")}</span><span style="color:var(--co)">- - ${t_("coL")}</span><span>${t_("sizeL")}</span>`;
-  cards(); paintFilters(); setTab(tab); el("detail").innerHTML = "";
+  cards(); paintFilters(); setTab(tab); clearSel();
 }
 el("lang").onclick = () => { L = L === "vi" ? "en" : "vi"; try { localStorage.setItem("cl_lang", L) } catch(e){} i18n(); };
+el("vGraph").onclick = () => setView("graph"); el("vLogic").onclick = () => setView("logic");
 el("fit").onclick = fit; el("allLinks").onclick = () => { showAll = !showAll; el("allLinks").textContent = showAll ? t_("strong") : t_("all"); paintLinks(); };
 el("q").oninput = renderList;
 i18n();
 // deep link: page.html#PROJ-123 opens that ticket (paste it in Jira), #module:core opens a module
-function fromHash(){ const h = decodeURIComponent(location.hash.slice(1)); if (!h) return;
+function fromHash(){ let h = decodeURIComponent(location.hash.slice(1)); if (!h) return;
+  if (h.endsWith("/logic")) { h = h.slice(0, -6); setView("logic"); }
+  cur = null;
   if (h.startsWith("module:")) { setTab("mods"); showModule(h.slice(7)); }
   else if (byKey[h]) { setTab("work"); showTicket(h); }
   else if (D.parents.some(p => p.key === h)) { setTab("parents"); showParent(h); } }
