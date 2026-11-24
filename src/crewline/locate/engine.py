@@ -44,6 +44,15 @@ def _index(repo: Path) -> tuple[SymbolIndex, dict]:
 
 
 def _history(repo: Path, since: str) -> list[dict]:
+    """Past tickets with the files their fix changed. Prefer what `calibrate`/`setup` fetched (Jira text or
+    GitHub issues), so locate uses the same history it was calibrated on; else ticket keys in commit subjects."""
+    cached = sorted((data_dir() / "index" / repo.resolve().name).glob("tickets-*.json"),
+                    key=lambda p: p.stat().st_mtime)
+    if cached:
+        tickets = json.loads(cached[-1].read_text(encoding="utf-8"))
+        out = [{"key": t["key"], "text": t["text"], "files": [f for f in t["files"] if baseline.is_code(f)]}
+               for t in tickets]
+        return [t for t in out if t["files"]]
     by = git.by_key(git.log(repo, "HEAD", since=since), KEY)
     out = []
     for key, commits in by.items():
@@ -58,7 +67,8 @@ def locate(repo: Path, ticket: str, *, top: int = 10, use_agent: bool = True,
     sym, raw = _index(repo)
     alive_list = [p for p in git.ls_tree(repo, "HEAD") if baseline.is_code(p)]
     alive = set(alive_list)
-    history = _history(repo, since)
+    # a ticket is never its own precedent (it is in the cached history once its fix has merged)
+    history = [h for h in _history(repo, since) if h["text"].strip() != ticket.strip()]
     ranked = {
         "path": baseline.rank_paths(ticket, alive_list),
         "history": baseline.rank_history(ticket, history, alive),

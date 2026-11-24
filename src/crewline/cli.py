@@ -105,6 +105,17 @@ def brief(key: str, jira: str = typer.Option("https://issues.apache.org/jira", h
     typer.echo(str(path))
 
 
+@app.command("setup")
+def setup_cmd(repo: Path = typer.Option(Path("."), help="Git repository to set up."),
+              since: str = typer.Option("2024-01-01", help="History start date."),
+              jira: str = typer.Option(None, help="Jira base URL (ticket text for PROJ-123 keys)."),
+              as_json: bool = typer.Option(False, "--json", help="Print the summary as JSON.")) -> None:
+    """One command: pick the ticket source, calibrate on this repo, build indexes, print MCP config."""
+    from crewline import onboard
+    s = onboard.run(repo, since, jira)
+    typer.echo(json.dumps(s, indent=2) if as_json else onboard.report(s))
+
+
 @app.command("calibrate")
 def calibrate_cmd(repo: Path = typer.Option(Path("."), help="Git repository to calibrate on."),
                   source: str = typer.Option("keys", help="keys (PROJ-123 in commits) | github | commits"),

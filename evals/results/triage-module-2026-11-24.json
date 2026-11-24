@@ -6,8 +6,8 @@
       "tickets": 179,
       "modules_seen": 24,
       "with_component": 102,
-      "locate@1": 0.665,
-      "locate@3": 0.899,
+      "locate@1": 0.777,
+      "locate@3": 0.922,
       "majority@1": 0.358,
       "component@1": 0.425
     },
@@ -15,8 +15,8 @@
       "tickets": 358,
       "modules_seen": 45,
       "with_component": 330,
-      "locate@1": 0.679,
-      "locate@3": 0.908,
+      "locate@1": 0.735,
+      "locate@3": 0.93,
       "majority@1": 0.134,
       "component@1": 0.662
     },
@@ -24,7 +24,7 @@
       "tickets": 61,
       "modules_seen": 11,
       "with_component": 49,
-      "locate@1": 0.787,
+      "locate@1": 0.902,
       "locate@3": 0.984,
       "majority@1": 0.721,
       "component@1": 0.705
@@ -33,14 +33,14 @@
       "tickets": 112,
       "modules_seen": 52,
       "with_component": 60,
-      "locate@1": 0.705,
-      "locate@3": 0.955,
+      "locate@1": 0.786,
+      "locate@3": 0.938,
       "majority@1": 0.5,
       "component@1": 0.268
     },
     "all": {
-      "locate@1": 0.689,
-      "locate@3": 0.92,
+      "locate@1": 0.768,
+      "locate@3": 0.934,
       "majority@1": 0.299,
       "component@1": 0.544,
       "tickets": 710

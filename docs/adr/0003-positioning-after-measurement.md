@@ -25,7 +25,8 @@ measurable gain; ticket-to-code history helps locate by +1.4 to +10 points depen
   can verify. For fixing one hard ticket, let the agent explore.
 - Keep ticket reading (images, attachments, comments) and Jira Data Center support as the other pillars.
 
-Triage (added 2026-11-24): module top-1 / top-3 over 710 tickets with zero tokens: locate 0.689 / 0.920,
+Triage (added 2026-11-24): module top-1 / top-3 over 710 tickets with zero tokens: locate 0.768 / 0.934
+(aggregation tuned on dev; was 0.689 / 0.920),
 Jira Component mapping 0.544, most-changed module 0.299.
 
 ## Consequences

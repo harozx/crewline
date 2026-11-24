@@ -4,6 +4,17 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (17) · `crewline setup` + demo; sửa lịch sử cho repo GitHub; triage 0.768
+
+- `crewline setup --repo`: tự chọn nguồn ticket (mã Jira / PR GitHub / commit), calibrate, dựng chỉ mục, in số đo trên repo + cấu hình MCP (Claude Code, Codex, Cursor). laya: ~1 phút.
+- Sửa: `locate` dùng lịch sử ticket mà calibrate đã tải (trước đây repo GitHub không có tín hiệu history khi chạy thật); một ticket không bao giờ là tiền lệ của chính nó.
+- Triage: gộp module dốc hơn (c=0, 20 file đầu), dò trên dev 0.675→0.743; **eval 0.689→0.768 top-1, 0.920→0.934 top-3**.
+- `docs/DEMO.md`: issue #1493 của laya (code chưa thấy), output thật kể cả chỗ trượt: locate không model #2, + rerank #1; triage đúng module ở #3.
+
+**Bước kế:** pilot chỉ đọc trên repo/Jira công ty (cần owner); README tiếng Việt.
+
+---
+
 ## 2026-11-24 (16) · Tín hiệu semantic (embedding local): lợi nhỏ, chỉ bật khi đáng
 
 - fastembed `BAAI/bge-small-en-v1.5` (ONNX, CPU, 0 token); chỉ mục cache theo commit; `calibrate` cân trọng số và báo có/không semantic.

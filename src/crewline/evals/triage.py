@@ -21,9 +21,12 @@ def module(path: str) -> str:
     return path.split("/src/", 1)[0] if "/src/" in path else path.split("/", 1)[0]
 
 
-def rank_modules(files: list[str], c: int = 10) -> list[str]:
+def rank_modules(files: list[str], c: int = 0, k: int = 20) -> list[str]:
+    """Module ranking from a file ranking. Steep weights on the top files (c=0) over the first 20 so a module with
+    many mediocre hits does not outvote the module holding the top file. Tuned on the dev split (Apache,
+    2026-11-24: top-1 0.675 -> 0.743), never on eval."""
     acc: dict[str, float] = defaultdict(float)
-    for i, f in enumerate(files):
+    for i, f in enumerate(files[:k]):
         acc[module(f)] += 1 / (c + i + 1)
     return [m for m, _ in sorted(acc.items(), key=lambda x: -x[1])]
 
