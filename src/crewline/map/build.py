@@ -100,23 +100,61 @@ def import_edges(repo: Path, files: list[str], file_dependents: Counter | None =
     return edges
 
 
-def git_activity(repo: Path, since: str = "1 year ago") -> tuple[Counter, dict[str, Counter]]:
-    """Per file: commits touching it, and commits per author (git log, no merges). The raw material for hotspots
-    and knowledge maps: who actually works on which code, independent of tickets."""
+def git_activity(repo: Path, since: str = "1 year ago") -> tuple[Counter, dict[str, Counter], dict[str, Counter]]:
+    """Per file: commits touching it, commits per author, and reviews per reviewer (`Reviewers:` trailers; in
+    projects like Kafka maintainers mostly review, so authorship alone misses them). No merges. The raw material
+    for hotspots and knowledge maps: who actually works on which code, independent of tickets."""
     p = subprocess.run(["git", "-C", str(repo), "log", "--no-merges", f"--since={since}", "--no-renames",
-                        "--name-only", "--format=@@%aN"], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace")
+                        "--name-only", "--format=@@%aN%n##%(trailers:key=Reviewers,valueonly,separator=%x3B)"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     commits: Counter = Counter()
     authors: dict[str, Counter] = defaultdict(Counter)
-    who = ""
-    for line in p.stdout.splitlines():
-        if line.startswith("@@"):
-            who = line[2:].strip()
-        elif line.strip() and baseline.is_code(line.strip()):
-            f = line.strip()
+    reviewers: dict[str, Counter] = defaultdict(Counter)
+
+    def flush(who: str, revs: list[str], files: list[str]) -> None:
+        if len(files) > BULK_COMMIT:   # license headers, annotations, mass renames: not knowledge of the code
+            return
+        for f in files:
             commits[f] += 1
             authors[f][who] += 1
-    return commits, authors
+            reviewers[f].update(revs)
+
+    who, revs, files = "", [], []
+    for line in p.stdout.splitlines():
+        if line.startswith("@@"):
+            flush(who, revs, files)
+            who, revs, files = line[2:].strip(), [], []
+        elif line.startswith("##"):
+            revs = [r.split("<", 1)[0].strip() for r in re.split(r"[;,]", line[2:]) if r.strip()]
+            revs = [r for r in revs if r]
+        elif line.strip() and baseline.is_code(line.strip()):
+            files.append(line.strip())
+    flush(who, revs, files)
+    return commits, authors, reviewers
+
+
+BULK_COMMIT = 100   # Kafka 2026: one 947-file annotation commit made its author "expert" on every file
+
+
+def person_key(name: str | None) -> str:
+    """Jira display names and git author names differ in accents, hyphens, order and junk ("Chang Chi Hsu" vs
+    "Chang-Chi Hsu", "X  (add mul)"): compare on sorted lowercase ASCII tokens."""
+    import unicodedata
+    if not name:
+        return ""
+    s = unicodedata.normalize("NFKD", re.sub(r"\(.*?\)", " ", name)).encode("ascii", "ignore").decode().lower()
+    return " ".join(sorted(re.findall(r"[a-z0-9]+", s.replace("-", ""))))
+
+
+def same_person(a: str | None, b: str | None) -> bool:
+    ka, kb = person_key(a), person_key(b)
+    if not ka or not kb:
+        return False
+    if ka == kb or ka.replace(" ", "") == kb.replace(" ", ""):
+        return True
+    ta, tb = ka.split(), kb.split()   # "Muralidhar Basani" vs "Murali Basani": same surname, one first name prefixes
+    return len(ta) == len(tb) == 2 and bool(set(ta) & set(tb)) and any(
+        x.startswith(y) or y.startswith(x) for x in set(ta) - set(tb) for y in set(tb) - set(ta))
 
 
 def _bus_factor(counts: Counter) -> int:
@@ -245,7 +283,7 @@ def structure(repo: Path, history: list[dict] | None = None, refresh: bool = Fal
     file_count = Counter(module(f) for f in files)
     file_deps: Counter = Counter()
     imports = import_edges(repo, files, file_deps)
-    commits, authors = git_activity(repo)
+    commits, authors, reviewers = git_activity(repo)
     sizes = {}
     for f in files:
         if commits.get(f):
@@ -299,6 +337,9 @@ def structure(repo: Path, history: list[dict] | None = None, refresh: bool = Fal
     file_experts = {f: [a for a, _ in c.most_common(3)] for f, c in authors.items()}
     data = {"modules": nodes, "history_tickets": len(history),
             "file_dependents": dict(file_deps), "file_experts": file_experts,
+            "file_authors": {f: dict(c) for f, c in authors.items()},
+            "module_authors": {m: dict(c) for m, c in mod_authors.items()},
+            "file_reviewers": {f: dict(c) for f, c in reviewers.items() if c},
             "file_commits": dict(commits),
             "imports": [{"source": a, "target": b, "n": n} for (a, b), n in imports.items()],
             "cochange": [{"a": a, "b": b, "n": n} for (a, b), n in cochange.items()]}
@@ -413,17 +454,36 @@ def duplicates(open_tickets: list[dict], history: list[dict], recent: int = 1500
     """Likely duplicates by meaning (local embeddings, no tokens): open vs open, and open vs recently fixed."""
     if len(open_tickets) < 2:
         return {}
+    import hashlib
+
     import numpy as np
 
+    from crewline.config import data_dir
     from crewline.locate.semantic import _embedder
+    cache_path = data_dir() / "index" / "ticket-embeddings.npz"   # closed tickets never change: embed once
+    cache: dict[str, np.ndarray] = {}
+    if cache_path.exists():
+        with np.load(cache_path) as z:
+            cache = dict(zip(z["keys"].tolist(), z["vecs"], strict=True))
+    added = False
 
     def vecs(texts: list[str]):
-        v = np.array(list(_embedder().embed([t[:1500] for t in texts], batch_size=64)), dtype=np.float32)
+        nonlocal added
+        hs = [hashlib.sha1(t[:1500].encode("utf-8")).hexdigest() for t in texts]
+        todo = [i for i, h in enumerate(hs) if h not in cache]
+        if todo:
+            for i, v in zip(todo, _embedder().embed([texts[i][:1500] for i in todo], batch_size=64), strict=True):
+                cache[hs[i]] = np.asarray(v, dtype=np.float32)
+            added = True
+        v = np.array([cache[h] for h in hs], dtype=np.float32)
         return v / (np.linalg.norm(v, axis=1, keepdims=True) + 1e-9)
 
     ov = vecs([t["text"] for t in open_tickets])
     past = history[-recent:]
     pv = vecs([h["text"] for h in past]) if past else np.zeros((0, ov.shape[1]), dtype=np.float32)
+    if added:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(cache_path, keys=np.array(list(cache)), vecs=np.stack(list(cache.values())))
     out: dict[str, list[dict]] = defaultdict(list)
     sim = ov @ ov.T
     for i, j in combinations(range(len(open_tickets)), 2):
@@ -467,12 +527,45 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
     prioritize(open_out, struct)
     open_out.sort(key=lambda t: -t["priority_score"])
     for t in open_out:
+        t["assignee_fit"] = assignee_fit(t, struct)
         t["jira_note"] = jira_note(t)
-    return {"title": title or repo.name, "modules": struct["modules"],
+    return {"people": workload(open_out),
+            "title": title or repo.name, "modules": struct["modules"],
             "imports": [e for e in struct["imports"] if e["n"] >= 2],
             "cochange": [c for c in struct["cochange"] if c["n"] >= 3],
             "open": open_out, "collisions": collisions, "parents": rollup_parents(open_out),
             "history_tickets": struct["history_tickets"]}
+
+
+def assignee_fit(t: dict, struct: dict) -> str:
+    """Has the assignee written or reviewed the code this ticket lands in (past year, git)? "knows" (the likely
+    files, or 3+ changes in the module) / "near" (touched the module or its neighbours a little) / "new" /
+    "unassigned".
+    A hint for leads ("new" may be fine: onboarding), never a verdict."""
+    if not t.get("assignee"):
+        return "unassigned"
+    fa, ma = struct.get("file_authors", {}), struct.get("module_authors", {})
+    fr = struct.get("file_reviewers", {})
+    who = {w for f in t["files"][:6] for w in (*fa.get(f, {}), *fr.get(f, {}))}   # wrote or reviewed a likely file
+    who |= {w for m in t["modules"] for w, n in ma.get(m, {}).items() if n >= 3}   # or works in the module
+    if any(same_person(t["assignee"], w) for w in who):
+        return "knows"
+    touched = {w for m in t["modules"] + t.get("impact", [])[:2] for w in ma.get(m, {})}
+    return "near" if any(same_person(t["assignee"], w) for w in touched) else "new"
+
+
+def workload(tickets: list[dict]) -> list[dict]:
+    """Open work per assignee: how much, how urgent, and on how much of it they know the code."""
+    acc: dict[str, dict] = {}
+    for t in tickets:
+        name = t.get("assignee") or ""
+        p = acc.setdefault(name, {"name": name, "open": 0, "points": 0, "late": 0, "knows": 0, "keys": []})
+        p["open"] += 1
+        p["points"] += t.get("points") or 0
+        p["late"] += t.get("days_left") is not None and t["days_left"] < 0
+        p["knows"] += t.get("assignee_fit") == "knows"
+        p["keys"].append(t["key"])
+    return sorted(acc.values(), key=lambda p: (not p["name"], -p["open"]))
 
 
 def mark_family(collisions: list[dict], parent_of: dict[str, str | None]) -> None:

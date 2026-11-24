@@ -156,7 +156,8 @@ def calibrate_cmd(repo: Path = typer.Option(Path("."), help="Git repository to c
 
 @app.command("mcp")
 def mcp_server() -> None:
-    """Run the Crewline MCP server on stdio (ticket_brief, locate_files, team_memory)."""
+    """Run the Crewline MCP server on stdio: ticket_brief, locate_files, team_memory, triage_ticket,
+    ticket_impact, rank_tickets."""
     from crewline.mcp.server import main
     main()
 

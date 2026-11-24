@@ -85,6 +85,13 @@ Dữ liệu và cache ở `D:/crewline-data`, không vào repo.
   (git history, tree-sitter, tantivy), gọi từ Python qua PyO3; điều phối agent và bộ đo vẫn là Python.
 - Thêm bộ trích symbol cho TS/JS, Go, C# theo repo mục tiêu (ngôn ngữ công cụ ≠ ngôn ngữ repo).
 
+## Bản đồ: việc kế
+- **Nhiều repo một dự án:** workspace liệt kê các repo, module đặt tên `repo/module`. Liên kết giữa các repo lấy từ:
+  cùng mã ticket trong commit của nhiều repo, thư viện nội bộ dùng chung (pom.xml/package.json), và
+  proto/OpenAPI/topic dùng chung. Mỗi ticket rơi vào repo nào thì hiện ở repo đó.
+- Kiểm chứng điểm ưu tiên trên lịch sử: ticket điểm cao có thật sự được làm sớm, hay gây nhiều bug, hơn không?
+- Pilot trên Jira công ty: chỉ đọc, owner tự đặt token, cần owner đồng ý.
+
 ## Rủi ro
 | Rủi ro | Xử lý |
 |---|---|

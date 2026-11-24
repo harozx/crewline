@@ -52,7 +52,7 @@ input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px
 background:var(--soft)}.score.h{background:#d23b2f22;color:var(--hit)}.score.m{background:#d9822b22;color:var(--impact)}
 .item .k{font-size:12px;color:var(--muted)}.item .ti{font-weight:550;line-height:1.35}
 .tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:5px;background:var(--soft);color:var(--muted);margin:2px 3px 0 0}
-.tag.red{color:var(--hit);background:#d23b2f1a}.tag.orange{color:var(--impact);background:#d9822b1a}.tag.blue{color:var(--co);background:#3566cf1a}
+.tag.red{color:var(--hit);background:#d23b2f1a}.tag.orange{color:var(--impact);background:#d9822b1a}.tag.blue{color:var(--co);background:#3566cf1a}.tag.green{color:#2f8f4e;background:#2f8f4e1a}
 #detail{border-top:1px solid var(--line);max-height:58%;overflow:auto;padding:12px 14px;background:var(--bg)}
 #detail:empty{display:none}
 .d-h{font-size:15.5px;font-weight:650;margin:0 0 4px}.d-h a{color:inherit}.meta{margin-bottom:8px}
@@ -87,6 +87,8 @@ const T = {
   topChild:"Việc con gấp nhất",outside:"Đâm vào việc ngoài epic",experts:"Người nắm module",bus:"bus factor",
   hot:"Điểm nóng (sửa nhiều × lớn)",fixed:"File hay phải sửa",typical:"Ticket tiêu biểu",usedBy:"Được import bởi",dependsOn:"Phụ thuộc vào",
   together:"Hay sửa cùng",pastT:"ticket cũ",bugs:"bug",none:"không có",onePerson:"một người giữ một nửa số thay đổi",
+  ppl:"Người làm",unF:"Chưa giao",newF:"Người làm chưa từng sửa vùng này",knowsT:"đã từng sửa hoặc review code này",nearT:"từng sửa module này hoặc module bên cạnh, nhưng ít",newT:"chưa từng sửa vùng code này",
+  unT:"chưa giao ai",openN:"việc",late:"quá hạn",knowsN:"việc đúng vùng mình từng sửa",pts:"điểm",whoHint:"Gợi ý dựa trên git 1 năm qua, không phải đánh giá người.",
   subtitle:(m,h,o)=>`${m} module · ${h} ticket đã sửa · ${o} ticket đang mở`},
  en:{search:"Search tickets, people, modules…",work:"To do",parents:"Epics / parents",col:"Collisions",mods:"Modules",
   open:"open tickets",due:"overdue / due soon",clash:"same-file pairs",first:"do first",bug:"Bugs",dueF:"Has deadline",clashF:"Collides",
@@ -97,6 +99,8 @@ const T = {
   copied:"copied",imports:"files import it",commits:"commits/yr",overdue:"overdue",left:"",days:"d left",sameParent:"same parent",
   noItems:"Nothing here.",children:"open children",topChild:"Most urgent child",outside:"Collides outside the epic",
   experts:"People who know it",bus:"bus factor",hot:"Hotspots (changes often × large)",fixed:"Most-fixed files",typical:"Typical tickets",
+  ppl:"People",unF:"Unassigned",newF:"Assignee never changed this code",knowsT:"has changed or reviewed this code",nearT:"touched this module or a neighbour, a little",newT:"has not changed this code",
+  unT:"unassigned",openN:"open",late:"overdue",knowsN:"in code they have changed",pts:"pts",whoHint:"Hint from the last year of git, not a judgement of people.",
   usedBy:"Imported by",dependsOn:"Depends on",together:"Changed together with",pastT:"past tickets",bugs:"bugs",none:"none",
   onePerson:"one person holds half of the changes",subtitle:(m,h,o)=>`${m} modules · ${h} fixed tickets · ${o} open tickets`}};
 let L = (()=>{try{return localStorage.getItem("cl_lang")||"vi"}catch(e){return "vi"}})();
@@ -172,7 +176,7 @@ function highlight(hit, area){
 }
 
 /* ---------- side panel ---------- */
-let tab = "work", filt = new Set();
+let tab = "work", filt = new Set(), person = null;
 function chips(o){ const c = [];
   if (o.days_left != null) c.push(`<span class="tag ${o.days_left < 0 ? "red" : o.days_left <= 7 ? "orange" : ""}">${esc(dueTxt(o))}</span>`);
   if ((o.type||"").toLowerCase() === "bug") c.push(`<span class="tag red">bug</span>`);
@@ -180,6 +184,9 @@ function chips(o){ const c = [];
   if ((o.overlaps||[]).some(x => x.level === "file" && !x.same_parent)) c.push(`<span class="tag red">${esc(t_("clashF"))}</span>`);
   if (o.parent) c.push(`<span class="tag blue">↑ ${esc(o.parent)}</span>`);
   return c.join(""); }
+function who(o){ if (!o.assignee) return `<span class="tag orange">${esc(t_("unT"))}</span>`;
+  const f = {knows:["green","knowsT","✓"], near:["blue","nearT","~"], new:["orange","newT","?"]}[o.assignee_fit] || ["","",""];
+  return `<span class="tag ${f[0]}" title="${esc(f[1] ? t_(f[1]) : "")}">${f[2]} ${esc(o.assignee)}</span>`; }
 function scoreCls(s){ return s >= 55 ? "h" : s >= 35 ? "m" : ""; }
 function renderList(){
   const q = el("q").value.toLowerCase(), box = el("list");
@@ -188,10 +195,19 @@ function renderList(){
     if (filt.has("bug")) rows = rows.filter(o => (o.type||"").toLowerCase() === "bug");
     if (filt.has("due")) rows = rows.filter(o => o.days_left != null && o.days_left <= 14);
     if (filt.has("clash")) rows = rows.filter(o => (o.overlaps||[]).some(x => x.level === "file" && !x.same_parent));
+    if (filt.has("un")) rows = rows.filter(o => !o.assignee);
+    if (filt.has("new")) rows = rows.filter(o => o.assignee_fit === "new");
+    if (person != null) rows = rows.filter(o => (o.assignee || "") === person);
     box.innerHTML = rows.map(o => `<div class="item" data-k="${esc(o.key)}"><div class="score ${scoreCls(o.priority_score)}">${o.priority_score}</div>
-      <div><div class="k">${esc(o.key)}${o.assignee ? " · " + esc(o.assignee) : ""}</div><div class="ti">${esc(o.title)}</div>
-      <div>${chips(o)}<span class="tag">→ ${o.modules.map(esc).join(", ")}</span></div></div></div>`).join("") || `<div class="empty">${t_("noItems")}</div>`;
+      <div><div class="k">${esc(o.key)}</div><div class="ti">${esc(o.title)}</div>
+      <div>${who(o)}${chips(o)}<span class="tag">→ ${o.modules.map(esc).join(", ")}</span></div></div></div>`).join("") || `<div class="empty">${t_("noItems")}</div>`;
     box.querySelectorAll(".item").forEach(x => x.onclick = () => showTicket(x.dataset.k));
+  } else if (tab === "ppl") {
+    box.innerHTML = `<div class="empty">${esc(t_("whoHint"))}</div>` + (D.people||[]).filter(p => (p.name || t_("unF")).toLowerCase().includes(q)).map(p => `<div class="item" data-n="${esc(p.name)}">
+      <div class="score ${p.late ? "h" : ""}">${p.open}</div><div><div class="k">${esc(p.name || t_("unF"))}</div>
+      <div><span class="tag">${p.open} ${esc(t_("openN"))}</span>${p.points ? `<span class="tag">${p.points} ${esc(t_("pts"))}</span>` : ""}
+      ${p.late ? `<span class="tag red">${p.late} ${esc(t_("late"))}</span>` : ""}${p.name ? `<span class="tag ${p.knows === p.open ? "green" : "orange"}">${p.knows}/${p.open} ${esc(t_("knowsN"))}</span>` : ""}</div></div></div>`).join("");
+    box.querySelectorAll(".item").forEach(x => x.onclick = () => { person = x.dataset.n; setTab("work"); });
   } else if (tab === "parents") {
     box.innerHTML = D.parents.filter(p => (p.key + p.title).toLowerCase().includes(q)).map(p => `<div class="item" data-p="${esc(p.key)}">
       <div class="score ${scoreCls(p.max_score)}">${p.max_score}</div><div><div class="k">${esc(p.key)} · ${esc(p.kind)}${p.status ? " · " + esc(p.status) : ""}</div>
@@ -288,7 +304,7 @@ function showTicket(k){
   const sibs = o.parent ? D.open.filter(x => x.parent === o.parent && x.key !== o.key) : [];
   const clash = (o.overlaps||[]).filter(c => c.level === "file");
   el("detail").innerHTML = `<div class="d-h">${o.url ? `<a href="${esc(o.url)}" target="_blank">${esc(o.key)}</a>` : esc(o.key)} · ${esc(o.title)}</div>
-   <div class="meta">${chips(o)}${[o.priority, o.assignee, o.sprint ? "sprint " + o.sprint : "", o.points != null ? o.points + " pts" : "", (o.fix_versions||[]).join(", ")].filter(Boolean).map(x => `<span class="tag">${esc(x)}</span>`).join("")}</div>
+   <div class="meta">${chips(o)}${who(o)}${[o.priority, o.sprint ? "sprint " + o.sprint : "", o.points != null ? o.points + " pts" : "", (o.fix_versions||[]).join(", ")].filter(Boolean).map(x => `<span class="tag">${esc(x)}</span>`).join("")}</div>
    <div class="box"><h3>${t_("why")} · ${o.priority_score}/100</h3><ul>${(o.priority_reasons||[]).map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
    <div class="two"><div class="box"><h3>${t_("where")}</h3>${o.modules.map(m => `<span class="tag red">${esc(m)}</span>`).join("")}</div>
    <div class="box"><h3>${t_("spread")}</h3>${o.impact.map(m => `<span class="tag orange" title="${esc((o.impact_reasons[m]||[]).join("; "))}">${esc(m)}</span>`).join("") || `<span class="tag">${t_("none")}</span>`}</div></div>
@@ -337,6 +353,7 @@ function showModule(id){
    <div class="box"><h3>${t_("together")}</h3>${co.map(c => chip(c.a === id ? c.b : c.a, c.n)).join("") || t_("none")}</div>`;
 }
 function setTab(name){ tab = name; document.querySelectorAll("#tabs .btn").forEach(b => b.classList.toggle("on", b.dataset.t === name));
+  if (name !== "work") person = null; paintFilters();
   el("filters").style.display = name === "work" ? "flex" : "none"; renderList(); }
 function cards(){
   const due = D.open.filter(o => o.days_left != null && o.days_left <= 7).length, top = D.open[0];
@@ -346,13 +363,15 @@ function cards(){
     (top ? `<div class="card" data-i="3"><div class="l">${t_("first")} · ${top.priority_score}</div><div class="t"><b>${esc(top.key)}</b> ${esc(top.title)}</div></div>` : "");
   el("cards").querySelectorAll(".card").forEach(x => x.onclick = () => x.dataset.i === "3" ? showTicket(top.key) : c[+x.dataset.i][2]());
 }
-function paintFilters(){ el("filters").innerHTML = [["bug", t_("bug")], ["due", t_("dueF")], ["clash", t_("clashF")]].map(([k, l]) =>
+function paintFilters(){ el("filters").innerHTML = (person != null ? `<button class="btn on" data-x="1">✕ ${esc(person || t_("unF"))}</button>` : "") +
+  [["bug", t_("bug")], ["due", t_("dueF")], ["clash", t_("clashF")], ["un", t_("unF")], ["new", t_("newF")]].map(([k, l]) =>
   `<button class="btn ${filt.has(k) ? "on" : ""}" data-f="${k}">${esc(l)}</button>`).join("");
-  el("filters").querySelectorAll(".btn").forEach(b => b.onclick = () => { filt.has(b.dataset.f) ? filt.delete(b.dataset.f) : filt.add(b.dataset.f); paintFilters(); renderList(); }); }
+  const x = el("filters").querySelector("[data-x]"); if (x) x.onclick = e => { e.stopPropagation(); person = null; paintFilters(); renderList(); };
+  el("filters").querySelectorAll(".btn[data-f]").forEach(b => b.onclick = () => { filt.has(b.dataset.f) ? filt.delete(b.dataset.f) : filt.add(b.dataset.f); paintFilters(); renderList(); }); }
 function i18n(){
   document.documentElement.lang = L; el("lang").textContent = L === "vi" ? "English" : "Tiếng Việt";
   el("sub").textContent = T[L].subtitle(D.modules.length, D.history_tickets, D.open.length); el("q").placeholder = t_("search");
-  el("tabs").innerHTML = [["work", t_("work")], ["parents", t_("parents")], ["col", t_("col")], ["mods", t_("mods")]].map(([k, l]) =>
+  el("tabs").innerHTML = [["work", t_("work")], ["parents", t_("parents")], ["ppl", t_("ppl")], ["col", t_("col")], ["mods", t_("mods")]].map(([k, l]) =>
     `<button class="btn ${tab === k ? "on" : ""}" data-t="${k}">${esc(l)}</button>`).join("");
   el("tabs").querySelectorAll(".btn").forEach(b => b.onclick = () => setTab(b.dataset.t));
   el("fit").textContent = t_("fit"); el("allLinks").textContent = showAll ? t_("strong") : t_("all");

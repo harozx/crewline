@@ -43,11 +43,25 @@ def _index(repo: Path) -> tuple[SymbolIndex, dict]:
     return SymbolIndex(raw), raw
 
 
+_HISTORY_MEMO: dict[tuple, list[dict]] = {}
+
+
 def _history(repo: Path, since: str) -> list[dict]:
     """Past tickets with the files their fix changed. Prefer what `calibrate`/`setup` fetched (Jira text or
-    GitHub issues), so locate uses the same history it was calibrated on; else ticket keys in commit subjects."""
+    GitHub issues), so locate uses the same history it was calibrated on; else ticket keys in commit subjects.
+    Memoised per source version: a map build locates 60 tickets and used to reload it 60 times (69 s)."""
     cached = sorted((data_dir() / "index" / repo.resolve().name).glob("tickets-*.json"),
                     key=lambda p: p.stat().st_mtime)
+    if cached:
+        memo: tuple = (str(repo.resolve()), since, str(cached[-1]), cached[-1].stat().st_mtime)
+    else:
+        memo = (str(repo.resolve()), since, git.head(repo))
+    if memo not in _HISTORY_MEMO:
+        _HISTORY_MEMO[memo] = _load_history(repo, since, cached)
+    return _HISTORY_MEMO[memo]
+
+
+def _load_history(repo: Path, since: str, cached: list[Path]) -> list[dict]:
     if cached:
         tickets = json.loads(cached[-1].read_text(encoding="utf-8"))
         out = [{"key": t["key"], "text": t["text"], "files": [f for f in t["files"] if baseline.is_code(f)]}

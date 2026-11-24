@@ -11,7 +11,7 @@ Everything runs on your machine with subscriptions you already have. Nothing wri
 ## Use it from your agent (MCP)
 
 First `uv run crewline setup --repo path/to/your/repo`: it calibrates on the repo's own history, prints how
-well Crewline does there, and the MCP config to paste. Walkthrough on a real issue: [docs/DEMO.md](docs/DEMO.md).
+well Crewline does there, and the MCP config to paste. Full guide in Vietnamese: [docs/HUONG-DAN.md](docs/HUONG-DAN.md). Walkthrough on a real issue: [docs/DEMO.md](docs/DEMO.md).
 
 ```
 uv sync
@@ -41,10 +41,16 @@ showing how the codebase is wired and where the work lands.
   team had to fix together.
 - Open tickets from Jira (JQL) or GitHub issues, each placed on its module with the likely files, the impact
   area (who imports it, what is usually fixed with it), similar past tickets and owners.
-- A priority score per open ticket (0-100) with its reasons: half from Jira (priority, bug, blocks, release),
-  half from the code (how far a change spreads, how bug-prone the module is, same-file collisions). Not yet
+- A priority score per open ticket (0-100) with its reasons: 40% Jira (priority, bug, blocks, release),
+  40% code (how far a change spreads, how bug-prone the module is, same-file collisions), 20% time (due date,
+  release date, staleness). Not yet
   validated against outcomes; use the reasons, not the number.
 - Same-file collisions between open tickets, so two people do not edit the same code blind.
+- Parent/child tasks and epics rolled up; siblings are never flagged as collisions.
+- People: open work per assignee, and whether the assignee has changed the code a ticket lands in (git, past
+  year; bulk commits ignored). A hint for leads, not a judgement.
+- Two views: the module graph, and a left-to-right logic view (ticket → modules and files → impact with
+  reasons). Deep links (`#KEY`, `#KEY/logic`, `#module:x`) can be pasted into Jira.
 - The same impact data is what `ticket_impact` returns over MCP and what the crew reviewer can check against
   (`crewline crew solve --impact`), so people and agents look at one picture.
 
@@ -121,4 +127,4 @@ uv run crewline eval solve-build --repo click && uv run crewline eval solve --mo
 uv run crewline eval memory
 ```
 
-Plan and decisions: `docs/PLAN.md` (Vietnamese), `docs/adr/`. License: Apache-2.0
+User guide (Vietnamese): [docs/HUONG-DAN.md](docs/HUONG-DAN.md). Plan and decisions: `docs/PLAN.md` (Vietnamese), `docs/adr/`. License: Apache-2.0

@@ -112,3 +112,14 @@ def test_parent_child_and_siblings_are_not_collisions():
     assert frozenset(("E-2", "E-3")) in family and frozenset(("E-1", "E-2")) in family
     assert frozenset(("E-2", "X-9")) not in family
     assert rollup_parents(tickets)[0]["collides_outside"] == ["X-9"]
+
+
+def test_jira_and_git_names_match_the_same_person():
+    # assignee fit compares Jira display names with git author names; a miss marks a ticket "new" wrongly
+    from crewline.map.build import same_person
+    assert same_person("Chang Chi Hsu", "Chang-Chi Hsu")
+    assert same_person("Chia-Cheng Chueh", "Chia-Cheng Chueh  (add mul)")
+    assert same_person("Muralidhar Basani", "Murali Basani")
+    assert same_person("José García", "Jose Garcia")
+    assert not same_person("David Jacot", "David Arthur")
+    assert not same_person(None, "Alan Lau")

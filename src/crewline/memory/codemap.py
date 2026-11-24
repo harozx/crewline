@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import tempfile
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -115,6 +114,3 @@ def build(repo: Path, sha: str | None = None) -> Path:
     out.write_text("\n".join(lines), encoding="utf-8")
     return out
 
-
-def copy_into(repo: Path, sha: str, dest: Path) -> None:
-    shutil.copyfile(build(repo, sha), dest / "codemap.md")

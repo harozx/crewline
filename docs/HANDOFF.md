@@ -4,6 +4,18 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (22) · Review + dọn dự án, người làm (assignee), tăng tốc bản đồ, hướng dẫn
+
+- **Assignee có đúng vùng code không:** so tên Jira với người **viết hoặc review** file (trailer `Reviewers:`) trong một năm. Ba mức: `knows` / `near` / `new`, cộng thêm `unassigned`. Tên được so khớp dù khác dấu, gạch nối hay thứ tự (`same_person`, có test). Tên viết bằng chữ khác (ví dụ tên Hàn) vẫn chưa khớp.
+- **Lỗi đã sửa:** một commit annotation 947 file khiến một người thành "chuyên gia" của mọi file. Từ nay bỏ qua commit trên 100 file (`BULK_COMMIT`).
+- Kafka 60 ticket: trước khi tính review, 30 ticket bị đánh "chưa từng sửa". Thêm review và mức `near` thì số này giảm (xem bản đồ). Maintainer Kafka chủ yếu review, nên chỉ tính tác giả commit là bỏ sót họ.
+- **Tab "Người làm":** số việc, điểm, quá hạn, và bao nhiêu việc nằm đúng vùng họ nắm. Bấm vào một người để lọc. Thêm bộ lọc Chưa giao và Chưa từng sửa.
+- **Tăng tốc:** history được nhớ (memo) thay vì đọc lại 60 lần; embedding ticket được cache (`index/ticket-embeddings.npz`). Kafka: 10 phút 19 giây xuống 3 phút 50 giây ở lần đầu, các lần sau nhanh hơn.
+- **Dọn dẹp:** bỏ `hello()` và `codemap.copy_into` (code chết), sửa mô tả lệnh `mcp`. Thêm `docs/HUONG-DAN.md` (hướng dẫn tiếng Việt).
+- **Việc kế:** bản đồ gộp nhiều repo (`repo/module`, liên kết qua cùng mã ticket trong commit, thư viện, proto/API dùng chung); pilot trên Jira công ty (chỉ đọc, owner tự đặt token).
+
+---
+
 ## 2026-11-24 (21) · Task cha/con + giao diện mới
 
 - Jira: lấy task cha (summary/description/status), đánh dấu sub-task; task con kế thừa hạn của cha. Kafka: 17/60 ticket mở là sub-task.
