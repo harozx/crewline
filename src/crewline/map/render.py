@@ -70,7 +70,7 @@ const D = __DATA__;
 const T = {
  vi:{search:"Tìm ticket, người, module…",work:"Việc cần làm",parents:"Epic / task cha",col:"Đâm nhau",mods:"Module",
   open:"việc đang mở",due:"quá hạn / sắp hạn",clash:"cặp sửa cùng file",first:"nên làm trước",bug:"Bug",dueF:"Có hạn",clashF:"Có va chạm",
-  fit:"Căn giữa",all:"Hiện mọi liên kết",strong:"Chỉ liên kết mạnh",lands:"Ticket rơi vào",impactL:"Vùng ảnh hưởng",importL:"mũi tên = import",
+  fit:"Căn giữa",all:"Hiện liên kết chính",strong:"Ẩn liên kết",lands:"Ticket rơi vào",impactL:"Vùng ảnh hưởng",importL:"mũi tên = import",
   coL:"nét đứt = hay sửa cùng nhau",sizeL:"to = nhiều ticket, đỏ = nhiều bug",why:"Vì sao ưu tiên",where:"Nằm ở",spread:"Lan ảnh hưởng tới",
   files:"File có khả năng phải sửa",people:"Người nắm phần code này",parent:"Task cha",siblings:"Task anh em đang mở",
   clashWith:"Sửa cùng file với",similar:"Rất giống (trùng hay task anh em?)",links:"Liên kết Jira",past:"Ticket cũ tương tự",
@@ -82,7 +82,7 @@ const T = {
   subtitle:(m,h,o)=>`${m} module · ${h} ticket đã sửa · ${o} ticket đang mở`},
  en:{search:"Search tickets, people, modules…",work:"To do",parents:"Epics / parents",col:"Collisions",mods:"Modules",
   open:"open tickets",due:"overdue / due soon",clash:"same-file pairs",first:"do first",bug:"Bugs",dueF:"Has deadline",clashF:"Collides",
-  fit:"Fit",all:"Show all links",strong:"Strong links only",lands:"Ticket lands here",impactL:"Impact area",importL:"arrow = import",
+  fit:"Fit",all:"Show main links",strong:"Hide links",lands:"Ticket lands here",impactL:"Impact area",importL:"arrow = import",
   coL:"dashed = changed together",sizeL:"size = tickets, red = bugs",why:"Why this priority",where:"Lands in",spread:"Spreads to",
   files:"Likely files",people:"People who know this code",parent:"Parent",siblings:"Open siblings",clashWith:"Same files as",
   similar:"Very similar (duplicate or sibling?)",links:"Jira links",past:"Similar past tickets",note:"Note for Jira",copy:"Copy note",
@@ -110,21 +110,28 @@ const nodes = D.modules.filter(m => m.tickets || m.files > 5).map(m => ({...m}))
 const ok = new Set(nodes.map(n => n.id));
 const allLinks = D.imports.filter(l => ok.has(l.source) && ok.has(l.target)).map(l => ({...l, kind:"imp"}))
   .concat(D.cochange.filter(c => ok.has(c.a) && ok.has(c.b)).map(c => ({source:c.a, target:c.b, n:c.n, kind:"co"})));
-const strong = l => l.kind === "imp" ? l.n >= 8 : l.n >= 12;
+// Only the strongest links shape the layout and can be shown; everything else appears on selection only.
+const ranked = [...allLinks].sort((a, b) => b.n - a.n);
+const topImp = new Set(ranked.filter(l => l.kind === "imp").slice(0, 35)), topCo = new Set(ranked.filter(l => l.kind === "co").slice(0, 15));
+const strong = l => topImp.has(l) || topCo.has(l);
 let showAll = false;
-const r = d => 6 + Math.sqrt(d.tickets) * 2;
+const maxT = Math.max(1, ...nodes.map(n => n.tickets));
+const r = d => 5 + 23 * Math.sqrt(d.tickets / maxT);
 const color = d3.scaleLinear().domain([0, .5]).range(["#a3abb5", "#d23b2f"]).clamp(true);
 const link = g.append("g").selectAll("line").data(allLinks).join("line")
   .attr("stroke", d => d.kind === "co" ? "var(--co)" : "var(--muted)").attr("stroke-dasharray", d => d.kind === "co" ? "4 3" : null)
   .attr("stroke-width", d => Math.min(3, .6 + Math.log1p(d.n) / 2)).attr("marker-end", d => d.kind === "imp" ? "url(#arr)" : null);
 const node = g.append("g").selectAll("g").data(nodes).join("g").attr("class","node").style("cursor","pointer").on("click", (e, d) => showModule(d.id));
 node.append("circle").attr("r", r).attr("fill", d => color(d.bug_share)).attr("stroke","var(--panel)").attr("stroke-width",2);
-node.append("text").attr("dy", d => r(d) + 12).attr("text-anchor","middle").text(d => d.id.split("/").pop());
+node.append("text").attr("dy", d => r(d) + 12).attr("text-anchor","middle").text(d => d.id.split("/").pop())
+  .attr("display", d => r(d) >= 8 ? null : "none");
+node.append("title").text(d => `${d.id} · ${d.tickets} tickets`);
 const el = id => document.getElementById(id), W = () => el("graph").clientWidth, H = () => el("graph").clientHeight;
 const sim = d3.forceSimulation(nodes)
   .force("link", d3.forceLink(allLinks.filter(strong)).id(d => d.id).distance(110).strength(.2))
-  .force("charge", d3.forceManyBody().strength(-320)).force("center", d3.forceCenter(W()/2, H()/2))
-  .force("collide", d3.forceCollide(d => r(d) + 18)).on("tick", draw);
+  .force("charge", d3.forceManyBody().strength(-260)).force("center", d3.forceCenter(W()/2, H()/2))
+  .force("x", d3.forceX(W()/2).strength(.04)).force("y", d3.forceY(H()/2).strength(.06))
+  .force("collide", d3.forceCollide(d => r(d) + 22)).on("tick", draw);
 function draw(){
   link.each(function(d){ const s = typeof d.source === "object" ? d.source : nodes.find(n => n.id === d.source),
     q = typeof d.target === "object" ? d.target : nodes.find(n => n.id === d.target); if (!s || !q) return;
@@ -132,9 +139,14 @@ function draw(){
     d3.select(this).attr("x1", s.x).attr("y1", s.y).attr("x2", q.x - dx/L2*cut).attr("y2", q.y - dy/L2*cut); });
   node.attr("transform", d => `translate(${d.x},${d.y})`);
 }
-const linkVisible = l => showAll || strong(l);
-function paintLinks(lit){ link.attr("display", d => linkVisible(d) || (lit && lit.has(d.source.id ?? d.source) && lit.has(d.target.id ?? d.target)) ? null : "none")
-  .attr("stroke-opacity", d => lit && lit.size ? ((lit.has(d.source.id ?? d.source) && lit.has(d.target.id ?? d.target)) ? .8 : .05) : (d.kind === "co" ? .45 : .35)); }
+const ends = d => [d.source.id ?? d.source, d.target.id ?? d.target];
+// default: no lines (a hairball explains nothing); selection shows its own links; the button shows the top ones
+function paintLinks(lit, hit){
+  link.attr("display", d => { const [a, b] = ends(d);
+      // on a selection, only the links that touch the landing modules: they explain why the area is lit
+      if (lit && lit.size) return lit.has(a) && lit.has(b) && (!hit || hit.has(a) || hit.has(b)) ? null : "none";
+      return showAll && strong(d) ? null : "none"; })
+    .attr("stroke-opacity", d => lit && lit.size ? .85 : (d.kind === "co" ? .5 : .4)); }
 paintLinks();
 node.call(d3.drag().on("start",(e,d)=>{if(!e.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
   .on("drag",(e,d)=>{d.fx=e.x;d.fy=e.y}).on("end",(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
@@ -148,7 +160,7 @@ function highlight(hit, area){
   node.classed("dim", d => lit.size && !lit.has(d.id));
   node.select("circle").attr("stroke", d => hit.includes(d.id) ? "var(--hit)" : area.includes(d.id) ? "var(--impact)" : "var(--panel)")
     .attr("stroke-width", d => lit.has(d.id) ? 5 : 2);
-  paintLinks(lit.size ? lit : null);
+  paintLinks(lit.size ? lit : null, hit.length ? new Set(hit) : null);
 }
 
 /* ---------- side panel ---------- */
@@ -275,6 +287,12 @@ el("lang").onclick = () => { L = L === "vi" ? "en" : "vi"; try { localStorage.se
 el("fit").onclick = fit; el("allLinks").onclick = () => { showAll = !showAll; el("allLinks").textContent = showAll ? t_("strong") : t_("all"); paintLinks(); };
 el("q").oninput = renderList;
 i18n();
+// deep link: page.html#PROJ-123 opens that ticket (paste it in Jira), #module:core opens a module
+function fromHash(){ const h = decodeURIComponent(location.hash.slice(1)); if (!h) return;
+  if (h.startsWith("module:")) { setTab("mods"); showModule(h.slice(7)); }
+  else if (byKey[h]) { setTab("work"); showTicket(h); }
+  else if (D.parents.some(p => p.key === h)) { setTab("parents"); showParent(h); } }
+window.addEventListener("hashchange", fromHash); setTimeout(fromHash, 1700);
 </script></body></html>"""
 
 

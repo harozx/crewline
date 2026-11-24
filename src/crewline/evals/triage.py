@@ -18,7 +18,9 @@ from crewline.locate import baseline
 
 
 def module(path: str) -> str:
-    return path.split("/src/", 1)[0] if "/src/" in path else path.split("/", 1)[0]
+    if "/src/" in path:
+        return path.split("/src/", 1)[0]
+    return path.split("/", 1)[0] if "/" in path else "(root)"   # top-level scripts are one bucket, not modules
 
 
 def rank_modules(files: list[str], c: int = 0, k: int = 20) -> list[str]:
