@@ -46,8 +46,10 @@ def test_memory_recall_respects_acl_and_date(tmp_path):
     assert [i.lesson for i in m.recall(["a/B.java"], lambda s: True, before="2026-01-02")] == ["public lesson"]
 
 
-def test_shim_clis_get_multiline_prompt_on_stdin():
+def test_shim_clis_get_multiline_prompt_on_stdin(monkeypatch):
+    from crewline.crew import adapters
     from crewline.crew.adapters import _cmd
+    monkeypatch.setattr(adapters, "_exe", lambda name: name)   # CI has no agent CLIs installed
     from crewline.crew.models import Choice
     for cli in ("claude", "codex"):
         argv, stdin = _cmd(Choice(cli, "m"), "line1\nline2", write=True, timeout=60)
