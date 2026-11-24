@@ -79,7 +79,9 @@ linked PR modified as gold; calibrated on older issues, scored on newer ones):
 
 It depends on the repo, which is why `crewline calibrate` reports these numbers on your own history before you
 rely on it. Re-ranking gains hold on unseen code. Where tickets describe UI behaviour and code uses unrelated
-names (photocraft), lexical signals miss and an agent or semantic search is needed.
+names, lexical signals miss. A local embedding signal (no tokens) is calibrated per repo and switched on only
+where it pays: +5 points on OpenMausBot, off elsewhere. photocraft stays low with every method; its PR-issue links
+look noisy, so treat it as an unreliable benchmark.
 
 **Per-repo calibration** (`crewline calibrate`): which signals help depends on the codebase. Kafka favours
 symbols (recall@10 0.620 → 0.642 after calibration); sqlfluff favours paths and drops two signals

@@ -10,7 +10,8 @@
     "path": 0.601,
     "history": 0.613,
     "symbols": 0.738,
-    "mentions": 0.413
+    "mentions": 0.413,
+    "semantic": 0.519
   },
   "default_weights_test": {
     "recall@1": 0.452,
@@ -21,15 +22,22 @@
     "path": 0.5,
     "history": 1,
     "symbols": 0,
-    "mentions": 1
+    "mentions": 1,
+    "semantic": 0
   },
   "calibrated_test": {
     "recall@1": 0.458,
     "recall@5": 0.703,
     "recall@10": 0.791
   },
+  "calibrated_without_semantic_test": {
+    "recall@1": 0.458,
+    "recall@5": 0.703,
+    "recall@10": 0.791
+  },
   "disabled": [
-    "symbols"
+    "symbols",
+    "semantic"
   ],
   "triage_test": {
     "modules": 1,

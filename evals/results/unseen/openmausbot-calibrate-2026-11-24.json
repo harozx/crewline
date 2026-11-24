@@ -10,36 +10,39 @@
     "path": 0.242,
     "history": 0.253,
     "symbols": 0.385,
-    "mentions": 0.188
+    "mentions": 0.188,
+    "semantic": 0.319
   },
   "default_weights_test": {
-    "recall@1": 0.178,
-    "recall@5": 0.312,
+    "recall@1": 0.177,
+    "recall@5": 0.313,
     "recall@10": 0.401
   },
   "calibrated_weights": {
     "path": 0,
-    "history": 1,
+    "history": 3,
     "symbols": 3,
-    "mentions": 0.5
+    "mentions": 2,
+    "semantic": 2
   },
   "calibrated_test": {
+    "recall@1": 0.159,
+    "recall@5": 0.39,
+    "recall@10": 0.466
+  },
+  "calibrated_without_semantic_test": {
     "recall@1": 0.142,
     "recall@5": 0.342,
     "recall@10": 0.416
   },
+  "semantic_dev_gain": 0.046,
   "disabled": [
     "path"
   ],
   "triage_test": {
     "modules": 10,
-    "top1": 0.902,
-    "top3": 0.979,
+    "top1": 0.895,
+    "top3": 0.993,
     "majority_top1": 0.762
-  },
-  "rerank_test": {
-    "n": 40,
-    "fused_recall@10": 0.357,
-    "rerank_recall@10": 0.583
   }
 }

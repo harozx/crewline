@@ -28,6 +28,7 @@ from crewline.locate.symbols import SymbolIndex
 from crewline.sources import git
 
 SIGNALS = ("path", "history", "symbols", "mentions", "semantic")
+SEMANTIC_MIN_GAIN = 0.02   # dev objective gain (recall@10 + 0.5 recall@5) needed to switch the semantic signal on
 GRID = (0, 0.5, 1, 2, 3)
 KS = (1, 5, 10)
 KEY = r"\b[A-Z][A-Z0-9]+-\d+\b"
@@ -207,6 +208,11 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
             best, best_w = val, w
         if not w["semantic"] and val > best_lex:
             best_lex, best_lex_w = val, w
+    # The semantic signal must earn its place: keep it only for a clear dev gain (laya, 2026-11-24: a tiny dev gain
+    # turned into a test loss). Small dev splits reward noise.
+    semantic_gain = round(best - best_lex, 3)
+    if semantic_gain < SEMANTIC_MIN_GAIN:
+        best, best_w = best_lex, best_lex_w
     default = {"path": 0.5, "history": 3, "symbols": 0.5, "mentions": 3, "semantic": 0}
     result = {
         "repo": str(repo), "source": source, "date": time.strftime("%Y-%m-%d"),
@@ -217,6 +223,7 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         "calibrated_weights": best_w,
         "calibrated_test": _score(test, best_w),
         "calibrated_without_semantic_test": _score(test, best_lex_w),
+        "semantic_dev_gain": semantic_gain,
         "disabled": [s for s, v in best_w.items() if not v],
         "triage_test": _triage(test, best_w),
     }

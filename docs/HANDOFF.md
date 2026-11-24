@@ -4,6 +4,17 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (16) · Tín hiệu semantic (embedding local): lợi nhỏ, chỉ bật khi đáng
+
+- fastembed `BAAI/bge-small-en-v1.5` (ONNX, CPU, 0 token); chỉ mục cache theo commit; `calibrate` cân trọng số và báo có/không semantic.
+- 6 repo code chưa thấy (r@10 test): OpenMausBot 0.416 → **0.466**; photocraft 0.081 → 0.080; laya 0.836 → 0.810 (dev +0.02, test −0.026); opencodex/openwiki/cleanyourtv: hiệu chỉnh tắt semantic.
+- Luật: chỉ bật semantic khi lợi trên dev ≥ 0.02 (`SEMANTIC_MIN_GAIN`). Không nâng ngưỡng sau khi thấy laya (sẽ là chỉnh theo test).
+- photocraft: cả rerank lẫn semantic đều không cứu → nghi dữ liệu nhiễu (PR–issue lỏng, vd #3097) → coi là benchmark kém tin cậy.
+
+**Bước kế:** đóng gói bản dùng được: `crewline setup` (calibrate + index + MCP config cho repo của người dùng) và ví dụ demo; pilot (cần owner).
+
+---
+
 ## 2026-11-24 (15) · Dữ liệu code chưa thấy: 6 repo GitHub tạo sau 06/2026
 
 - `calibrate --source github` (0 token): laya 0.836, cleanyourtv 0.821 (n=14), openwiki 0.791, OpenMausBot 0.416, opencodex 0.311, photocraft 0.081.

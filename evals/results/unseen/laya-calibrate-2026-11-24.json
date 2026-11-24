@@ -10,7 +10,8 @@
     "path": 0.529,
     "history": 0.571,
     "symbols": 0.779,
-    "mentions": 0.271
+    "mentions": 0.271,
+    "semantic": 0.655
   },
   "default_weights_test": {
     "recall@1": 0.538,
@@ -18,20 +19,27 @@
     "recall@10": 0.776
   },
   "calibrated_weights": {
-    "path": 3,
+    "path": 2,
     "history": 0.5,
-    "symbols": 3,
-    "mentions": 3
+    "symbols": 1,
+    "mentions": 2,
+    "semantic": 3
   },
   "calibrated_test": {
+    "recall@1": 0.529,
+    "recall@5": 0.712,
+    "recall@10": 0.81
+  },
+  "calibrated_without_semantic_test": {
     "recall@1": 0.481,
     "recall@5": 0.79,
     "recall@10": 0.836
   },
+  "semantic_dev_gain": 0.02,
   "disabled": [],
   "triage_test": {
     "modules": 2,
-    "top1": 0.771,
+    "top1": 0.657,
     "top3": 0.943,
     "majority_top1": 0.743
   }
