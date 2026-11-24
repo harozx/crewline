@@ -4,6 +4,16 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (21) · Task cha/con + giao diện mới
+
+- Jira: lấy task cha (summary/description/status), đánh dấu sub-task; task con kế thừa hạn của cha. Kafka: 17/60 ticket mở là sub-task.
+- Task con ngắn được định vị với nội dung task cha ghép vào. Anh em cùng cha, hoặc cha–con, = "cùng gia đình": không báo trùng, không báo va chạm (`mark_family`, có test).
+- Tổng hợp theo task cha (`rollup_parents`): module, vùng lan, trạng thái con, con gấp nhất, va chạm ra ngoài epic. Kafka: 8 task cha; 39 cặp cùng file → 7 cùng gia đình, 32 thật.
+- Giao diện viết lại: tiếng Việt mặc định (nút English), thẻ tóm tắt, bộ lọc (bug / có hạn / va chạm), tab Epic, đồ thị chỉ hiện liên kết mạnh (nút hiện tất cả, căn giữa), chi tiết chia ô, tên file đậm + đường dẫn mờ.
+- Dựng bản đồ Kafka giờ ~10 phút (trước ~4): cần đo xem chậm ở đâu.
+
+---
+
 ## 2026-11-24 (20) · Học điểm mạnh đối thủ (ý tưởng, code của mình) + đo
 
 - Đối thủ gần: Mapnostics (ticket→top 3 file + blast radius), Bito AI Architect (đánh giá ảnh hưởng vào Jira), CodeScene (hotspot, change coupling, Jira), Linear Triage Intelligence (routing, trùng lặp).

@@ -170,8 +170,13 @@ def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
             if other.get("key"):
                 links.append({"rel": rel, "key": other["key"]})
         parent = f.get("parent") or {}
+        pf = parent.get("fields") or {}
         epic_link = f.get(custom.get("Epic Link", "")) if custom.get("Epic Link") else None
+        parent_is_epic = ((pf.get("issuetype") or {}).get("name") or "").lower() == "epic"
         out.append({"key": issue["key"], "title": f.get("summary") or "",
+                    "parent": parent.get("key") or epic_link, "parent_title": pf.get("summary"),
+                    "is_subtask": bool((f.get("issuetype") or {}).get("subtask")),
+                    "parent_kind": "epic" if (epic_link or parent_is_epic) else ("parent" if parent else None),
                     "due": f.get("duedate"), "release_date": release_dates[0] if release_dates else None,
                     "sprint": sprint if isinstance(sprint, str) else None, "points": points,
                     "created": (f.get("created") or "")[:10], "updated": (f.get("updated") or "")[:10],
@@ -184,7 +189,32 @@ def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
                     "fix_versions": [v.get("name") for v in versions]})
         if len(out) >= n:
             break
+    _attach_parents(jira, out)
     return out
+
+
+def _attach_parents(jira, tickets: list[dict]) -> None:
+    """Fetch each parent (story/epic) once: its text helps place terse sub-tasks ("add tests", "Connect part"),
+    and its title/status are shown on the map."""
+    keys = sorted({t["parent"] for t in tickets if t.get("parent")})
+    info = {}
+    for i in range(0, len(keys), 50):
+        try:
+            for issue in jira.search(f"key in ({','.join(keys[i:i + 50])})",
+                                     fields="summary,description,status,issuetype,duedate,fixVersions"):
+                f = issue["fields"]
+                info[issue["key"]] = {"title": f.get("summary") or "", "text": f.get("description") or "",
+                                      "status": (f.get("status") or {}).get("name"),
+                                      "type": (f.get("issuetype") or {}).get("name"), "due": f.get("duedate")}
+        except Exception:  # noqa: BLE001 - parents in another project or not visible: keep the children
+            continue
+    for t in tickets:
+        p = info.get(t.get("parent") or "")
+        if p:
+            t["parent_title"] = t.get("parent_title") or p["title"]
+            t["parent_status"], t["parent_type"] = p["status"], p["type"]
+            t["parent_text"] = f"{p['title']}\n{p['text'][:1500]}"
+            t["due"] = t.get("due") or p.get("due")   # a sub-task inherits its parent's deadline
 
 
 def open_tickets_github(slug: str, n: int = 60) -> list[dict]:
@@ -417,12 +447,23 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
     struct = structure(repo, history, refresh=True)
     keep = ("key", "title", "type", "url", "assignee", "status", "priority", "epic", "links", "fix_versions",
             "due", "release_date", "sprint", "points", "created", "updated")
-    open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, t["text"], struct)} for t in open_tickets]
+    keep += ("parent", "parent_title", "parent_status", "parent_type", "parent_kind", "is_subtask")
+
+    def locate_text(t: dict) -> str:
+        # sub-tasks are often one line ("Connect support"): the parent says what the work is about
+        if t.get("parent_text") and (t.get("is_subtask") or len(t["text"]) < 300):
+            return f"{t['text']}\n\nParent {t.get('parent')}: {t['parent_text']}"
+        return t["text"]
+
+    open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, locate_text(t), struct)} for t in open_tickets]
+    parent_of = {t["key"]: t.get("parent") for t in open_out}
     collisions = overlaps(open_out)
+    mark_family(collisions, parent_of)
     dups = duplicates(open_tickets, history)
     for t in open_out:
         t["overlaps"] = [c for c in collisions if t["key"] in (c["a"], c["b"])]
-        t["duplicates"] = dups.get(t["key"], [])
+        t["duplicates"] = [d for d in dups.get(t["key"], [])
+                           if not (t.get("parent") and parent_of.get(d["key"]) == t.get("parent"))]
     prioritize(open_out, struct)
     open_out.sort(key=lambda t: -t["priority_score"])
     for t in open_out:
@@ -430,7 +471,44 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
     return {"title": title or repo.name, "modules": struct["modules"],
             "imports": [e for e in struct["imports"] if e["n"] >= 2],
             "cochange": [c for c in struct["cochange"] if c["n"] >= 3],
-            "open": open_out, "collisions": collisions, "history_tickets": struct["history_tickets"]}
+            "open": open_out, "collisions": collisions, "parents": rollup_parents(open_out),
+            "history_tickets": struct["history_tickets"]}
+
+
+def mark_family(collisions: list[dict], parent_of: dict[str, str | None]) -> None:
+    """Siblings under one parent, or a parent and its own child, were planned together: shown, never alarmed."""
+    for c in collisions:
+        pa, pb = parent_of.get(c["a"]), parent_of.get(c["b"])
+        c["same_parent"] = bool((pa and pa == pb) or pa == c["b"] or pb == c["a"])
+
+
+def rollup_parents(tickets: list[dict]) -> list[dict]:
+    """Epics / parent stories seen from their open children: where the work lands, how far it spreads, what is
+    most urgent, and whether children collide with work outside the parent."""
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for t in tickets:
+        if t.get("parent"):
+            groups[t["parent"]].append(t)
+    out = []
+    for key, kids in groups.items():
+        mods: Counter = Counter()
+        spread: Counter = Counter()
+        for k in kids:
+            mods.update(k["modules"][:1])
+            spread.update(k["impact"])
+        family = {key, *(k["key"] for k in kids)}
+        outside = sorted({c["b"] if c["a"] == k["key"] else c["a"] for k in kids for c in k["overlaps"]
+                          if c["level"] == "file" and not c.get("same_parent")} - family)
+        first = kids[0]
+        out.append({"key": key, "title": first.get("parent_title") or "", "status": first.get("parent_status"),
+                    "kind": first.get("parent_kind") or "parent", "children": [k["key"] for k in kids],
+                    "statuses": dict(Counter(k.get("status") or "?" for k in kids)),
+                    "modules": [m for m, _ in mods.most_common(4)],
+                    "impact": [m for m, _ in spread.most_common(5) if m not in mods][:4],
+                    "top_child": max(kids, key=lambda k: k["priority_score"])["key"],
+                    "max_score": max(k["priority_score"] for k in kids),
+                    "collides_outside": outside})
+    return sorted(out, key=lambda p: -p["max_score"])
 
 
 JIRA_PRIORITY = {"blocker": 1.0, "highest": 1.0, "critical": 0.8, "high": 0.6, "major": 0.5, "medium": 0.4,

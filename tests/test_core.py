@@ -94,3 +94,21 @@ def test_due_dates_drive_urgency():
     assert _urgency(soon) == ("release in 5 days", 0.8)
     assert _urgency(later)[1] < _urgency(soon)[1]
     assert _urgency({})[1] == 0.0
+
+
+def test_parent_child_and_siblings_are_not_collisions():
+    from crewline.map.build import mark_family, overlaps, rollup_parents
+
+    def t(k, p):
+        return {"key": k, "parent": p, "files": ["a.py"], "modules": ["m"], "impact": [], "priority_score": 1,
+                "assignee": None, "status": "Open"}
+
+    tickets = [t("E-1", None), t("E-2", "E-1"), t("E-3", "E-1"), t("X-9", None)]
+    cols = overlaps(tickets)
+    mark_family(cols, {x["key"]: x["parent"] for x in tickets})
+    for x in tickets:
+        x["overlaps"] = [c for c in cols if x["key"] in (c["a"], c["b"])]
+    family = {frozenset((c["a"], c["b"])) for c in cols if c["same_parent"]}
+    assert frozenset(("E-2", "E-3")) in family and frozenset(("E-1", "E-2")) in family
+    assert frozenset(("E-2", "X-9")) not in family
+    assert rollup_parents(tickets)[0]["collides_outside"] == ["X-9"]
