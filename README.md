@@ -8,6 +8,11 @@ in git worktrees, a reviewer from another vendor checks, tests gate).
 
 Everything runs on your machine with subscriptions you already have. Nothing writes back to Jira or GitHub.
 
+**Status: research prototype (0.1).** Every claim below comes with its benchmark, including the ones where
+Crewline did not help. Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), git; for the crew, at least
+one agent CLI (agy by default; Claude Code or Codex if you enable your own account); Docker only for the solve
+benchmark. Tested on Windows; Linux runs in CI.
+
 ## Use it from your agent (MCP)
 
 First `uv run crewline setup --repo path/to/your/repo`: it calibrates on the repo's own history, prints how
@@ -126,5 +131,22 @@ uv run crewline eval build --project kafka && uv run crewline eval locate --proj
 uv run crewline eval solve-build --repo click && uv run crewline eval solve --mode crew
 uv run crewline eval memory
 ```
+
+## Limitations
+
+- Localisation quality depends on the repo: from 0.84 recall@10 down to 0.08 on unseen code. Run
+  `crewline calibrate` (or `setup`) and trust the number it prints for *your* repo, not ours.
+- An agent exploring the repo itself still beats the zero-token ranking on hard tickets; Crewline wins on cost,
+  speed and routing many tickets, not on peak recall.
+- Team memory and a generated codebase map showed no measurable gain; both are off by default.
+- The priority score is transparent but not yet validated against outcomes.
+- "People who know this code" and the assignee hint come from git (authors and `Reviewers:` trailers); they are
+  barely better than "most active in the module" and miss names written in another script.
+- One repo per map; multi-repo projects are on the roadmap.
+- Confluence and team chat are planned sources, not implemented.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Rules for agents and humans working in this repo: [AGENTS.md](AGENTS.md).
 
 User guide (Vietnamese): [docs/HUONG-DAN.md](docs/HUONG-DAN.md). Plan and decisions: `docs/PLAN.md` (Vietnamese), `docs/adr/`. License: Apache-2.0

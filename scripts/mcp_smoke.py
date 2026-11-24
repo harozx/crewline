@@ -1,11 +1,15 @@
-"""Call every Crewline MCP tool through a real stdio client. Run: uv run python scripts/mcp_smoke.py"""
+"""Call every Crewline MCP tool through a real stdio client.
+Run from the repo root: uv run python scripts/mcp_smoke.py  (needs a Kafka clone at $CREWLINE_DATA/repos/kafka)"""
 
 import asyncio
+from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-KAFKA = "D:/crewline-data/repos/kafka"
+from crewline.config import data_dir
+
+KAFKA = str(data_dir() / "repos" / "kafka")
 GMM = "group-coordinator/src/main/java/org/apache/kafka/coordinator/group/GroupMetadataManager.java"
 CALLS = [
     ("team_memory", {"paths": [GMM], "limit": 3}),
@@ -17,7 +21,8 @@ CALLS = [
 
 
 async def main() -> None:
-    params = StdioServerParameters(command="uv", args=["--directory", "D:/crewline", "run", "crewline", "mcp"])
+    root = str(Path(__file__).resolve().parents[1])
+    params = StdioServerParameters(command="uv", args=["--directory", root, "run", "crewline", "mcp"])
     async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
         await s.initialize()
         print("tools:", [t.name for t in (await s.list_tools()).tools])

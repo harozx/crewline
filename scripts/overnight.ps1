@@ -1,11 +1,12 @@
 # Overnight Crewline benchmarks. Run in PowerShell before sleeping:
-#   powershell -ExecutionPolicy Bypass -File D:\crewline\scripts\overnight.ps1
+#   powershell -ExecutionPolicy Bypass -File scripts\overnight.ps1   (from the repo root)
 # Light load: agy only (2 calls at a time), no Docker. Every step resumes where it stopped.
-# Logs: D:\crewline-data\overnight-<date>.log
+# Logs: $env:CREWLINE_DATA\overnight-<date>.log
 
 $ErrorActionPreference = "Continue"
-$log = "D:\crewline-data\overnight-$(Get-Date -Format yyyyMMdd-HHmm).log"
-Set-Location D:\crewline
+$data = if ($env:CREWLINE_DATA) { $env:CREWLINE_DATA } else { "$HOME\.crewline" }
+$log = "$data\overnight-$(Get-Date -Format yyyyMMdd-HHmm).log"
+Set-Location (Split-Path $PSScriptRoot -Parent)
 
 # Keep the machine awake while this window runs (released when the script ends).
 Add-Type -Namespace Win32 -Name Power -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint esFlags);'

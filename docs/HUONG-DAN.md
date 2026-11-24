@@ -83,8 +83,8 @@ Mở file HTML bằng trình duyệt. Sau khi dựng lại, nhấn **Ctrl+F5** �
 ## 4. Dùng qua MCP
 
 ```
-claude mcp add crewline -- uv --directory D:/crewline run crewline mcp
-codex mcp add crewline -- uv --directory D:/crewline run crewline mcp
+claude mcp add crewline -- uv --directory /duong-dan/toi/crewline run crewline mcp
+codex mcp add crewline -- uv --directory /duong-dan/toi/crewline run crewline mcp
 ```
 
 | Tool | Trả về |

@@ -1,7 +1,7 @@
 # Crewline: rules for every agent and contributor
 
-Crewline turns a ticket into a reviewed PR. It reads Jira, Confluence and GitHub (images and attachments
-included), finds where in the code to fix, recalls what the team already learned there, and runs the local CLI
+Crewline turns a ticket into a reviewed PR. It reads Jira and GitHub (images and attachments included; Confluence
+planned), finds where in the code to fix, recalls what the team already learned there, and runs the local CLI
 agents (Claude Code, Codex, agy) as a crew with one lead.
 
 Read `docs/HANDOFF.md` (newest entry first) before working, and `docs/PLAN.md` for the roadmap.
@@ -32,7 +32,7 @@ ADR rules and answer exactly what the prompt asks.
 - A CLI that hits a usage limit is blocked in `<data>/ledger/quota_blocked.json` until it resets.
 - The routing table lives in `src/crewline/crew/models.py`; change it there from eval results, not by feel.
 - Paid APIs are off by default.
-- Heavy evals run one at a time (16 GB machine; parallel runs got reaped for memory).
+- Heavy evals run one at a time (on a 16 GB machine parallel runs got killed for memory).
 
 ## Code
 - Python 3.11, `uv`. Run `uv run ruff check . && uv run pytest` before every commit.
@@ -43,7 +43,7 @@ ADR rules and answer exactly what the prompt asks.
 - Tests only for logic that can silently go wrong (ranking, linking, ACL, routing). No tests for plumbing.
 
 ## Data and safety
-- Datasets and caches go to `D:/crewline-data` (`CREWLINE_DATA`), never into the repo.
+- Datasets and caches go to `$CREWLINE_DATA` (default `~/.crewline`), never into the repo.
 - Never store secrets, tokens or raw transcripts in the repo, the memory store or a ledger.
 - Every memory item keeps its source link and inherits the source's ACL; queries run with the user's token.
 - Company systems are read-only unless the owner turns writing on for that system.

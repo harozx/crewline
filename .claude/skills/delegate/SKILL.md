@@ -16,4 +16,4 @@ Rules:
   with a reviewer from another vendor.
 - For long inputs, let the agent read files in `--cwd`; do not paste them into the prompt.
 - Only relay the short result back into your own context.
-- Check `D:/crewline-data/ledger/calls.jsonl` for failures and rate limits before retrying.
+- Check `$CREWLINE_DATA/ledger/calls.jsonl` for failures and rate limits before retrying.

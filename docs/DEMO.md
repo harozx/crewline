@@ -8,7 +8,7 @@ on 2026-11-24, misses included.
 
 ```
 $ uv run crewline setup --repo path/to/laya --since 2026-06-01
-Crewline setup: D:\crewline-data\repos\laya
+Crewline setup: .../repos/laya
   ticket source : github - GitHub repo NandhaKishorM/laya: merged PRs that close issues
   history used  : 87 tickets (tuned on the older 60%, scored on the newer 40%)
   right file    : in the top 10 for 81%, ranked first for 53%
@@ -17,7 +17,7 @@ Crewline setup: D:\crewline-data\repos\laya
 
 Add the MCP server to your agent:
   Claude Code:
-    claude mcp add crewline -- uv --directory D:/crewline run crewline mcp
+    claude mcp add crewline -- uv --directory /path/to/crewline run crewline mcp
   ...
 ```
 

@@ -130,7 +130,7 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 - Kafka **60 ticket**: agent Neon Medium tự mò r@10 0.804 (66k token, 63 s); `locate` gộp 0.686 (0 token); **`locate` + rerank 0.811** (~18k token, ~40 s). Thắng riêng: locate 10, agent 8.
 - Mục (10) với 20 ticket (0.878 vs 0.798) là **may do mẫu nhỏ** → không dùng con số đó.
 - Kết luận đúng: cùng độ trúng, ít token hơn ~3.6x, nhanh hơn ~35%; hai bên đúng ở ticket khác nhau → thử **agent + gợi ý từ locate**.
-- Flink: 1/40 (dừng vì máy thiếu RAM: game "Sky" ~1.9 GB + Docker Desktop/WSL ~1 GB dù bước này không cần Docker).
+- Flink: 1/40 (dừng vì máy thiếu RAM: các ứng dụng khác + Docker Desktop/WSL ~1 GB dù bước này không cần Docker).
 
 **Bước kế:** (1) Flink 40 ticket (`uv run crewline eval versus --project flink --n 40`, tự tiếp tục); (2) đo agent đọc `locate.md` trước khi tìm.
 

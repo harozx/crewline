@@ -1,7 +1,7 @@
 [project]
 name = "crewline"
 version = "0.1.0"
-description = "Ticket-to-PR crew: reads Jira/Confluence/GitHub, finds where to fix, remembers what the team learned, and runs local CLI agents (Claude, Codex, agy) as a tiered crew."
+description = "Context layer for coding agents on Jira teams: where a ticket lands in the code, what it impacts, who knows it, and a change map of all open work. MCP server and local CLI-agent crew."
 readme = "README.md"
 authors = [{ name = "harozx" }]
 license = "Apache-2.0"
@@ -13,6 +13,9 @@ dependencies = [
     "mcp>=2.3",
     "fastembed>=0.4",
 ]
+
+[project.urls]
+Repository = "https://github.com/harozx/crewline"
 
 [project.scripts]
 crewline = "crewline.cli:app"
