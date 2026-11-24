@@ -27,7 +27,7 @@ from crewline.locate import baseline, symbols
 from crewline.locate.symbols import SymbolIndex
 from crewline.sources import git
 
-SIGNALS = ("path", "history", "symbols", "mentions")
+SIGNALS = ("path", "history", "symbols", "mentions", "semantic")
 GRID = (0, 0.5, 1, 2, 3)
 KS = (1, 5, 10)
 KEY = r"\b[A-Z][A-Z0-9]+-\d+\b"
@@ -95,19 +95,28 @@ def tickets_from_commits(repo: Path, since: str) -> list[dict]:
     return out
 
 
-def _snapshot_index(repo: Path, sha: str, out_dir: Path) -> SymbolIndex:
+def _snapshot_index(repo: Path, sha: str, out_dir: Path):
+    """Symbol index and semantic (embedding) index of the repo at `sha`, built in a throwaway worktree."""
+    import json as _json
+
+    from crewline.locate import semantic
+
     path = out_dir / f"symbols-{sha[:10]}.json"
-    if not path.exists():
+    emb = out_dir / f"semantic-{sha[:10]}.npz"
+    if not path.exists() or not emb.exists():
         wt = out_dir / "snapshot"
         if wt.exists():
             subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)], capture_output=True)
             shutil.rmtree(wt, ignore_errors=True)
         git._git(repo, "worktree", "add", "-q", "--detach", str(wt), sha)
         try:
-            symbols.build(wt, path)
+            if not path.exists():
+                symbols.build(wt, path)
+            if not emb.exists():
+                semantic.build(wt, _json.loads(path.read_text()), emb)
         finally:
             subprocess.run(["git", "-C", str(repo), "worktree", "remove", "--force", str(wt)], capture_output=True)
-    return SymbolIndex.load(path)
+    return SymbolIndex.load(path), semantic.SemanticIndex(emb)
 
 
 def _recall(ranked: list[str], gold: list[str], k: int) -> float:
@@ -170,7 +179,7 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
                 "verdict": "too little history to calibrate (need >= 30 tickets with known fixes)"}
     cut = int(len(tickets) * 0.6)
     boundary = tickets[cut]["parent"]
-    sym = _snapshot_index(repo, boundary, out_dir)
+    sym, sem = _snapshot_index(repo, boundary, out_dir)
     trees: dict[str, list[str]] = {}
     rows = []
     for i, t in enumerate(tickets):
@@ -183,9 +192,11 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
                      "path": baseline.rank_paths(t["text"], alive_list),
                      "history": baseline.rank_history(t["text"], history, alive),
                      "symbols": sym.rank_bm25(t["text"], alive),
-                     "mentions": sym.rank_mentions(t["text"], alive)})
+                     "mentions": sym.rank_mentions(t["text"], alive),
+                     "semantic": sem.rank(t["text"], alive)})
     dev, test = [r for r in rows if r["dev"]], [r for r in rows if not r["dev"]]
     best, best_w = -1.0, {}
+    best_lex, best_lex_w = -1.0, {}   # best without the semantic signal, to show what it adds
     for combo in itertools.product(GRID, repeat=len(SIGNALS)):
         if not any(combo):
             continue
@@ -194,7 +205,9 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         val = s["recall@10"] + 0.5 * s["recall@5"]
         if val > best:
             best, best_w = val, w
-    default = {"path": 0.5, "history": 3, "symbols": 0.5, "mentions": 3}
+        if not w["semantic"] and val > best_lex:
+            best_lex, best_lex_w = val, w
+    default = {"path": 0.5, "history": 3, "symbols": 0.5, "mentions": 3, "semantic": 0}
     result = {
         "repo": str(repo), "source": source, "date": time.strftime("%Y-%m-%d"),
         "tickets": len(tickets), "dev": len(dev), "test": len(test),
@@ -203,6 +216,7 @@ def run(repo: Path, source: str = "keys", since: str = "2023-01-01", jira_url: s
         "default_weights_test": _score(test, default),
         "calibrated_weights": best_w,
         "calibrated_test": _score(test, best_w),
+        "calibrated_without_semantic_test": _score(test, best_lex_w),
         "disabled": [s for s, v in best_w.items() if not v],
         "triage_test": _triage(test, best_w),
     }
