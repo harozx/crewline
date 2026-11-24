@@ -127,11 +127,16 @@ function showTicket(k){
      return `<li><a href="#" data-k="${esc(o)}" class="ov">${esc(o)}</a> · ${c.level === "file" ? "same file: " + c.files.map(esc).join(", ") : "same module: " + c.modules.map(esc).join(", ")}${c.different_owners ? " · different assignees" : ""}</li>`; }).join("")}</ul>` : ""}
    ${(t.links||[]).length ? `<h3>Jira links</h3>${t.links.map(l => `<span class=chip>${esc(l.rel)} ${esc(l.key)}</span>`).join("")}` : ""}
    <h3>Lands in</h3>${t.modules.map(m => `<span class="chip" style="color:var(--hit)">${esc(m)}</span>`).join("")}
-   <h3>Likely files</h3><ul>${t.files.map(f => `<li><code>${esc(f)}</code> ${(t.evidence[f]||[]).map(e=>`<span class=chip>${esc(e)}</span>`).join("")}</li>`).join("")}</ul>
+   ${(t.duplicates||[]).length ? `<h3>Very similar tickets (duplicate or sibling task?)</h3>${t.duplicates.map(d => `<span class="chip" style="color:var(--impact)">${esc(d.key)} · ${d.kind === "fixed" ? "already fixed?" : "open"} · ${d.similarity}</span>`).join("")}` : ""}
+   <h3>Likely files</h3><ul>${t.files.map(f => `<li><code>${esc(f)}</code> ${(t.evidence[f]||[]).map(e=>`<span class=chip>${esc(e)}</span>`).join("")}${(t.file_dependents||{})[f] ? `<span class=chip>${t.file_dependents[f]} files import it</span>` : ""}${(t.file_commits_1y||{})[f] ? `<span class=chip>${t.file_commits_1y[f]} commits/yr</span>` : ""}</li>`).join("")}</ul>
+   ${(t.suggested_people||[]).length ? `<h3>People who know this code</h3>${t.suggested_people.map(esc).join(", ")}` : ""}
    <h3>Impact area</h3>${t.impact.length ? t.impact.map(m => `<span class="chip" style="color:var(--impact)">${esc(m)}</span>`).join("") : "<span class=m>none found</span>"}
    <div class="m" style="margin-top:4px">Modules that import the landing modules, and modules historically fixed together with them.</div>
    <h3>Similar past tickets</h3>${t.similar.length ? t.similar.map(s => `<span class=chip>${esc(s)}</span>`).join("") : "<span class=m>none</span>"}
-   ${owners(t.modules)}`;
+   ${owners(t.modules)}
+   ${t.jira_note ? `<h3>Jira note</h3><button id="copyNote" style="padding:5px 9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);cursor:pointer">Copy impact note for Jira</button> <span class=m id="copied"></span>` : ""}`;
+  const cb = document.getElementById("copyNote");
+  if (cb) cb.onclick = () => navigator.clipboard.writeText(t.jira_note).then(() => document.getElementById("copied").textContent = "copied", () => document.getElementById("copied").textContent = "copy blocked by the browser");
   document.querySelectorAll("a.ov").forEach(a => a.onclick = e => { e.preventDefault(); showTicket(a.dataset.k); });
 }
 function owners(mods){ const o = mods.map(m => byId[m]?.owners).filter(Boolean);
@@ -145,6 +150,8 @@ function showModule(id){
   document.getElementById("detail").innerHTML = `<hr><h2>${esc(id)}</h2>
    <div class="m">${m.tickets} past tickets · ${Math.round(m.bug_share*100)}% bugs · ${m.recent} recent · ${m.files} code files</div>
    ${owners([id])}
+   ${(m.experts||[]).length ? `<h3>People who know it</h3>${m.experts.map(e => `<span class=chip>${esc(e.name)} · ${e.commits}</span>`).join("")}<div class=m>bus factor ${m.bus_factor}${m.bus_factor === 1 ? " — one person holds half of the changes" : ""} · ${m.commits_1y} commits in the last year</div>` : ""}
+   ${(m.hotspots||[]).length ? `<h3>Hotspots (changes often × large)</h3><ul>${m.hotspots.map(h => `<li><code>${esc(h.file)}</code> <span class=chip>${h.commits} commits · ${h.lines} lines</span></li>`).join("")}</ul>` : ""}
    <h3>Most-fixed files</h3><ul>${m.hot_files.map(f => `<li><code>${esc(f)}</code></li>`).join("") || "<li class=m>none</li>"}</ul>
    <h3>Typical tickets</h3><ul>${m.examples.map(e => `<li>${e.url ? `<a href="${esc(e.url)}" target=_blank>${esc(e.key)}</a>` : esc(e.key)} ${esc(e.title)}</li>`).join("")}</ul>
    <h3>Used by (imports it)</h3>${inn.map(l => `<span class=chip>${esc(l.source)} · ${l.n}</span>`).join("") || "<span class=m>none</span>"}

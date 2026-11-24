@@ -4,6 +4,15 @@ Mục mới nhất ở trên cùng. Mỗi mục: đã làm gì, số đo, bướ
 
 ---
 
+## 2026-11-24 (20) · Học điểm mạnh đối thủ (ý tưởng, code của mình) + đo
+
+- Đối thủ gần: Mapnostics (ticket→top 3 file + blast radius), Bito AI Architect (đánh giá ảnh hưởng vào Jira), CodeScene (hotspot, change coupling, Jira), Linear Triage Intelligence (routing, trùng lặp).
+- Đã thêm (tự viết): blast radius mức file (số file import); hotspot (commit 1 năm × kích thước) + chuyên gia mỗi module + bus factor (git log); "người nắm code" cho từng ticket; ticket rất giống (embedding local; mở↔mở, mở↔đã sửa); ghi chú Jira wiki markup có nút copy (không tự ghi lên Jira); due date/release/sprint/points/staleness trong ưu tiên.
+- **Đo:** gợi ý người trên 179 ticket Kafka: top-1 11.7%, top-3 21.2% vs người commit nhiều nhất module 7.8% / 20.1% → **gần như không hơn** → đổi tên thành "người nắm code" (hỏi/review), không phải "người nên làm".
+- Ticket "trùng" trên Kafka hoá ra là task anh em (KIP-1368 cho Connect vs Streams) → nhãn "rất giống: trùng hay task anh em?".
+
+---
+
 ## 2026-11-24 (19) · Task Jira trên bản đồ: chồng chéo + ưu tiên có lý do
 
 - Jira: ticket mở kèm status, priority, assignee, epic, links (blocks/relates), fix version. `ticket_impact` nhận được mã Jira (đọc ticket qua `JIRA_URL`).

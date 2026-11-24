@@ -40,8 +40,9 @@ def _py_name(path: str) -> str:
     return p[:-9] if p.endswith(".__init__") else p
 
 
-def import_edges(repo: Path, files: list[str]) -> Counter:
-    """(from_module, to_module) -> number of file-level imports between them."""
+def import_edges(repo: Path, files: list[str], file_dependents: Counter | None = None) -> Counter:
+    """(from_module, to_module) -> number of file-level imports between them. If `file_dependents` is given it
+    is filled with, per file, how many other files import it (file-level blast radius)."""
     by_dotted = {d: f for f in files if (d := _dotted(f))}
     by_py = {_py_name(f): f for f in files if f.endswith(".py")}
     fileset = set(files)
@@ -91,10 +92,41 @@ def import_edges(repo: Path, files: list[str]) -> Counter:
                 if c in crates and crates[c] != src:
                     edges[(src, crates[c])] += 1
         for t in targets:
+            if file_dependents is not None and t != f:
+                file_dependents[t] += 1
             dst = module(t)
             if dst != src:
                 edges[(src, dst)] += 1
     return edges
+
+
+def git_activity(repo: Path, since: str = "1 year ago") -> tuple[Counter, dict[str, Counter]]:
+    """Per file: commits touching it, and commits per author (git log, no merges). The raw material for hotspots
+    and knowledge maps: who actually works on which code, independent of tickets."""
+    p = subprocess.run(["git", "-C", str(repo), "log", "--no-merges", f"--since={since}", "--no-renames",
+                        "--name-only", "--format=@@%aN"], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace")
+    commits: Counter = Counter()
+    authors: dict[str, Counter] = defaultdict(Counter)
+    who = ""
+    for line in p.stdout.splitlines():
+        if line.startswith("@@"):
+            who = line[2:].strip()
+        elif line.strip() and baseline.is_code(line.strip()):
+            f = line.strip()
+            commits[f] += 1
+            authors[f][who] += 1
+    return commits, authors
+
+
+def _bus_factor(counts: Counter) -> int:
+    """How many people together made half of the commits: 1 means one person holds the knowledge."""
+    total, acc = sum(counts.values()), 0
+    for i, (_, n) in enumerate(counts.most_common(), 1):
+        acc += n
+        if acc * 2 >= total:
+            return i
+    return 0
 
 
 def load_history(repo: Path, jira_url: str | None = None) -> list[dict]:
@@ -181,7 +213,18 @@ def structure(repo: Path, history: list[dict] | None = None, refresh: bool = Fal
     history = history if history is not None else load_history(repo)
     files = [p for p in git.ls_tree(repo, "HEAD") if baseline.is_code(p)]
     file_count = Counter(module(f) for f in files)
-    imports = import_edges(repo, files)
+    file_deps: Counter = Counter()
+    imports = import_edges(repo, files, file_deps)
+    commits, authors = git_activity(repo)
+    sizes = {}
+    for f in files:
+        if commits.get(f):
+            try:
+                sizes[f] = sum(1 for _ in open(repo / f, encoding="utf-8", errors="replace"))
+            except OSError:
+                sizes[f] = 0
+    # hotspot = how often it changes x how big it is (CodeScene's idea, computed from our git log)
+    hotspot = {f: round(commits[f] * (1 + __import__("math").log1p(sizes.get(f, 0))), 1) for f in sizes}
 
     tickets_per: Counter = Counter()
     bugs_per: Counter = Counter()
@@ -206,13 +249,27 @@ def structure(repo: Path, history: list[dict] | None = None, refresh: bool = Fal
 
     owners = engine._codeowners(repo)
     nodes = []
+    mod_authors: dict[str, Counter] = defaultdict(Counter)
+    mod_commits: Counter = Counter()
+    for f, c in authors.items():
+        mod_authors[module(f)].update(c)
+        mod_commits[module(f)] += commits[f]
     for m in sorted(set(file_count) | set(tickets_per)):
         who = next((o for pat, o in reversed(owners) if pat and m.startswith(pat)), None)
+        hs = sorted(((f, h) for f, h in hotspot.items() if module(f) == m), key=lambda x: -x[1])[:5]
         nodes.append({"id": m, "files": file_count[m], "tickets": tickets_per[m],
                       "bug_share": round(bugs_per[m] / tickets_per[m], 2) if tickets_per[m] else 0,
                       "recent": recent_per[m], "owners": who,
-                      "hot_files": [f for f, _ in hot_files[m].most_common(6)], "examples": examples[m]})
+                      "hot_files": [f for f, _ in hot_files[m].most_common(6)], "examples": examples[m],
+                      "commits_1y": mod_commits[m],
+                      "experts": [{"name": a, "commits": n} for a, n in mod_authors[m].most_common(4)],
+                      "bus_factor": _bus_factor(mod_authors[m]),
+                      "hotspots": [{"file": f, "score": h, "commits": commits[f], "lines": sizes.get(f, 0)}
+                                   for f, h in hs]})
+    file_experts = {f: [a for a, _ in c.most_common(3)] for f, c in authors.items()}
     data = {"modules": nodes, "history_tickets": len(history),
+            "file_dependents": dict(file_deps), "file_experts": file_experts,
+            "file_commits": dict(commits),
             "imports": [{"source": a, "target": b, "n": n} for (a, b), n in imports.items()],
             "cochange": [{"a": a, "b": b, "n": n} for (a, b), n in cochange.items()]}
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -245,21 +302,61 @@ def impact(repo: Path, text: str, struct: dict | None = None) -> dict:
             reasons[c].append(f"fixed with {m} in {n} past tickets")
     by_id = {m["id"]: m for m in struct["modules"]}
     area = [m for m, _ in spread.most_common(8) if m not in mods][:6]
+    deps = struct.get("file_dependents", {})
+    experts = struct.get("file_experts", {})
+    fcommits = struct.get("file_commits", {})
+    people: Counter = Counter()
+    for rank, f in enumerate(top_files[:3]):   # who has been changing the code this ticket lands in
+        for k, who in enumerate(experts.get(f, [])):
+            people[who] += (3 - rank) * (3 - k)
     return {"modules": mods, "files": top_files[:6], "evidence": {h.path: h.found_by for h in hits[:6]},
+            "file_dependents": {f: deps.get(f, 0) for f in top_files[:6]},
+            "file_commits_1y": {f: fcommits.get(f, 0) for f in top_files[:6]},
             "similar": sorted({s for h in hits[:3] for s in h.similar_tickets})[:5],
             "impact": area, "impact_reasons": {m: reasons[m] for m in area},
+            "suggested_people": [p for p, _ in people.most_common(3)],
             "owners": sorted({by_id[m]["owners"] for m in mods + area if by_id.get(m, {}).get("owners")})}
 
 
 def impact_markdown(r: dict) -> str:
     lines = ["**Lands in:** " + ", ".join(f"`{m}`" for m in r["modules"]), "", "**Likely files:**"]
-    lines += [f"- `{f}` ({', '.join(r['evidence'].get(f, []))})" for f in r["files"]]
+    for f in r["files"]:
+        extra = []
+        if r.get("file_dependents", {}).get(f):
+            extra.append(f"{r['file_dependents'][f]} files import it")
+        if r.get("file_commits_1y", {}).get(f):
+            extra.append(f"changed in {r['file_commits_1y'][f]} commits this year")
+        lines.append(f"- `{f}` ({', '.join(r['evidence'].get(f, []) + extra)})")
+    if r.get("suggested_people"):
+        lines += ["", "**People who know this code:** " + ", ".join(r["suggested_people"])]
     lines += ["", "**Impact area** (check these when changing the code above):"]
     lines += [f"- `{m}`: {'; '.join(r['impact_reasons'][m])}" for m in r["impact"]] or ["- none found"]
     if r["similar"]:
         lines += ["", "**Similar past tickets:** " + ", ".join(r["similar"])]
     if r["owners"]:
         lines += ["", "**Owners:** " + ", ".join(r["owners"])]
+    return "\n".join(lines)
+
+
+def jira_note(t: dict) -> str:
+    """Impact note in Jira wiki markup, ready to paste as a comment. Crewline never posts it by itself: writing to
+    a company system is the team's decision (AGENTS.md)."""
+    lines = ["h4. Crewline impact note", f"*Lands in:* {', '.join(t['modules'])}"]
+    lines += ["*Likely files:*"] + [f"* {{{{{f}}}}}" + (f" - {t['file_dependents'][f]} files import it"
+                                                      if t.get("file_dependents", {}).get(f) else "")
+                                   for f in t["files"][:5]]
+    if t.get("impact"):
+        lines.append("*Impact area:* " + "; ".join(f"{m} ({', '.join(t['impact_reasons'][m])})" for m in t["impact"]))
+    if t.get("suggested_people"):
+        lines.append("*People who know this code:* " + ", ".join(t["suggested_people"]))
+    files = [c for c in t.get("overlaps") or [] if c["level"] == "file"]
+    if files:
+        lines.append("*Same files as open:* " + ", ".join(c["b"] if c["a"] == t["key"] else c["a"] for c in files))
+    if t.get("duplicates"):
+        similar = ", ".join(f"{d['key']} ({d['kind']})" for d in t["duplicates"])
+        lines.append("*Very similar (duplicate or sibling?):* " + similar)
+    if t.get("priority_reasons"):
+        lines.append(f"*Priority {t.get('priority_score')}/100:* " + "; ".join(t["priority_reasons"]))
     return "\n".join(lines)
 
 
@@ -278,6 +375,42 @@ def ranked_tickets(repo: Path, open_tickets: list[dict], limit: int = 20) -> str
     return "\n".join(lines)
 
 
+DUP_OPEN = 0.90     # cosine between two open tickets to call them likely duplicates
+DUP_CLOSED = 0.92   # cosine to an already fixed ticket ("maybe fixed already / regression")
+
+
+def duplicates(open_tickets: list[dict], history: list[dict], recent: int = 1500) -> dict[str, list[dict]]:
+    """Likely duplicates by meaning (local embeddings, no tokens): open vs open, and open vs recently fixed."""
+    if len(open_tickets) < 2:
+        return {}
+    import numpy as np
+
+    from crewline.locate.semantic import _embedder
+
+    def vecs(texts: list[str]):
+        v = np.array(list(_embedder().embed([t[:1500] for t in texts], batch_size=64)), dtype=np.float32)
+        return v / (np.linalg.norm(v, axis=1, keepdims=True) + 1e-9)
+
+    ov = vecs([t["text"] for t in open_tickets])
+    past = history[-recent:]
+    pv = vecs([h["text"] for h in past]) if past else np.zeros((0, ov.shape[1]), dtype=np.float32)
+    out: dict[str, list[dict]] = defaultdict(list)
+    sim = ov @ ov.T
+    for i, j in combinations(range(len(open_tickets)), 2):
+        if sim[i, j] >= DUP_OPEN:
+            a, b = open_tickets[i], open_tickets[j]
+            out[a["key"]].append({"key": b["key"], "kind": "open", "similarity": round(float(sim[i, j]), 2)})
+            out[b["key"]].append({"key": a["key"], "kind": "open", "similarity": round(float(sim[i, j]), 2)})
+    if len(past):
+        ps = ov @ pv.T
+        for i, t in enumerate(open_tickets):
+            for j in np.argsort(-ps[i])[:2]:
+                if ps[i, j] >= DUP_CLOSED and past[j]["key"] != t["key"]:
+                    out[t["key"]].append({"key": past[j]["key"], "kind": "fixed",
+                                          "similarity": round(float(ps[i, j]), 2)})
+    return dict(out)
+
+
 def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str = "") -> dict:
     """The map page's data: the shared structure plus every open ticket's impact."""
     repo = repo.resolve()
@@ -286,10 +419,14 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
             "due", "release_date", "sprint", "points", "created", "updated")
     open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, t["text"], struct)} for t in open_tickets]
     collisions = overlaps(open_out)
+    dups = duplicates(open_tickets, history)
     for t in open_out:
         t["overlaps"] = [c for c in collisions if t["key"] in (c["a"], c["b"])]
+        t["duplicates"] = dups.get(t["key"], [])
     prioritize(open_out, struct)
     open_out.sort(key=lambda t: -t["priority_score"])
+    for t in open_out:
+        t["jira_note"] = jira_note(t)
     return {"title": title or repo.name, "modules": struct["modules"],
             "imports": [e for e in struct["imports"] if e["n"] >= 2],
             "cochange": [c for c in struct["cochange"] if c["n"] >= 3],
