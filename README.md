@@ -34,6 +34,10 @@ Cursor / other clients: command `uv`, args `--directory /path/to/crewline run cr
 | `ticket_impact(ticket, repo)` | Where a ticket (text or Jira key) lands and where the change spreads, with reasons |
 | `rank_tickets(repo, jql \| github)` | Too many open tickets: priority order with reasons, and same-file collisions between them |
 
+No Jira token? If your agent already reads Jira through another MCP (e.g. Atlassian's), let it fetch the ticket
+and pass the text to `ticket_impact` / `locate_files`, or the list of issues to `rank_tickets(tickets=...)`. For the
+change map, export a Jira filter to CSV and run `crewline map --tickets export.csv`.
+
 Environment: `JIRA_URL`, `JIRA_TOKEN` (Data Center PAT, or Cloud API token with `JIRA_USER`), `CREWLINE_DATA`
 (cache folder), `CREWLINE_CLIS` (which agent CLIs Crewline itself may drive; default `agy`).
 

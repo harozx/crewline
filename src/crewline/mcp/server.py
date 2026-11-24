@@ -98,7 +98,8 @@ def triage_ticket(ticket: str, repo: str, top_modules: int = 3) -> str:
 def ticket_impact(ticket: str, repo: str) -> str:  # ticket: text or a Jira key like PROJ-123
     """Before changing code for a ticket: where it lands (modules, likely files with evidence) and the impact
     area to check (modules that import those modules, and modules the team historically had to fix together with
-    them), plus similar past tickets and owners. No model calls; uses the repo's cached structure."""
+    them), plus similar past tickets and owners. No model calls; uses the repo's cached structure.
+    If you read the ticket with another Jira/Atlassian tool, pass its summary and description as `ticket`."""
     import re
 
     from crewline.map import build
@@ -111,26 +112,34 @@ def ticket_impact(ticket: str, repo: str) -> str:  # ticket: text or a Jira key 
         from crewline.sources.jira import Jira  # a Jira key: read the ticket itself
         f = Jira(os.environ["JIRA_URL"]).issue(ticket.strip(), fields="summary,description")["fields"]
         text = f"{f.get('summary') or ''}\n{f.get('description') or ''}"
+    elif re.fullmatch(r"[A-Z][A-Z0-9]+-\d+", ticket.strip()):
+        return ("Only a ticket key was given and JIRA_URL is not set. Read the ticket with your Jira tool and pass "
+                "its summary and description as `ticket`.")
     return build.impact_markdown(build.impact(p, text))
 
 
 @mcp.tool()
-def rank_tickets(repo: str, jql: str | None = None, github: str | None = None, limit: int = 20) -> str:
+def rank_tickets(repo: str, jql: str | None = None, github: str | None = None, tickets: str | None = None,
+                 limit: int = 20) -> str:
     """Too many open tickets? Rank them by a transparent priority score (0-100) with the reasons: Jira priority,
     bug, what it blocks, release target, how far a change there spreads, how bug-prone the module is, and
-    same-file collisions with other open tickets. Give `jql` (uses env JIRA_URL) or `github` (owner/name).
+    same-file collisions with other open tickets. Give `jql` (uses env JIRA_URL), `github` (owner/name), or
+    `tickets`: a JSON list of issues you already fetched with another Jira/Atlassian tool (raw REST issues or
+    {key, summary, description, assignee, status, priority, due, parent}), so no Jira token is needed here.
     A ranking aid for planning; the reasons matter more than the number. No model calls."""
     from crewline.map import build
 
     p = Path(repo)
     if not (p / ".git").exists():
         return f"{repo} is not a git checkout."
-    if jql and os.environ.get("JIRA_URL"):
+    if tickets:
+        opened = build.open_tickets_from(tickets, os.environ.get("JIRA_URL"), 100)
+    elif jql and os.environ.get("JIRA_URL"):
         opened = build.open_tickets_jira(os.environ["JIRA_URL"], jql, 100)
     elif github:
         opened = build.open_tickets_github(github, 100)
     else:
-        return "Give jql (with JIRA_URL set) or github=owner/name."
+        return "Give tickets (JSON from your Jira tool), jql (with JIRA_URL set) or github=owner/name."
     return build.ranked_tickets(p, opened, limit)
 
 

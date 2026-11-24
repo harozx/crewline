@@ -24,6 +24,18 @@ Biến môi trường (tự đặt trong shell của bạn, Crewline không lưu
 | `CREWLINE_DATA` | thư mục cache, chỉ mục, bản đồ (mặc định trong thư mục người dùng) |
 | `CREWLINE_CLIS` | CLI agent Crewline được phép chạy, mặc định `agy`. Thêm `claude,codex` nếu bạn có tài khoản riêng |
 
+### Không có token Jira?
+
+Không bắt buộc phải có token. Có ba cách thay thế:
+
+| Muốn làm gì | Cách làm, không cần token |
+|---|---|
+| Agent sửa một ticket | Claude đã kết nối Jira qua MCP của Atlassian thì cứ để Claude đọc ticket. Sau đó nó truyền nội dung ticket cho `ticket_impact` / `locate_files` của Crewline. Ví dụ: *"Đọc ABC-123 bằng Jira, rồi dùng crewline ticket_impact với nội dung đó"* |
+| Xếp ưu tiên nhiều ticket qua MCP | *"Lấy các ticket đang mở của dự án ABC bằng Jira, rồi gọi crewline rank_tickets với tickets = danh sách đó"* |
+| Dựng bản đồ | Trong Jira: lọc ticket → **Export → CSV (all fields)**, rồi chạy `crewline map --tickets ticket.csv`. File JSON mà agent lấy về cũng dùng được |
+
+Không có token thì lịch sử ticket cũ được lấy từ commit có mã `ABC-123` (chỉ có tiêu đề commit, không có nội dung ticket), nên độ chính xác thấp hơn một chút. `ticket_brief` (đọc ảnh trong ticket) thì vẫn cần token.
+
 ## 2. Thiết lập cho một repo (một lệnh)
 
 ```

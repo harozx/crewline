@@ -110,6 +110,7 @@ def map_cmd(repo: Path = typer.Option(Path("."), help="Git repository."),
             jira: str = typer.Option(None, help="Jira base URL for open tickets and links."),
             jql: str = typer.Option(None, help="JQL for open tickets, e.g. 'project = X AND resolution = Unresolved'."),
             github: str = typer.Option(None, help="owner/name: open GitHub issues instead of Jira."),
+            tickets: Path = typer.Option(None, help="No Jira token? A Jira CSV export or a JSON file of issues."),
             open_n: int = typer.Option(60, help="How many open tickets to place on the map."),
             out: Path = typer.Option(None, help="Output HTML (default <data>/maps/<repo>.html).")) -> None:
     """Change map: modules, imports, where past tickets landed, and where each open ticket lands and spreads."""
@@ -117,7 +118,9 @@ def map_cmd(repo: Path = typer.Option(Path("."), help="Git repository."),
     from crewline.map import build, render
     repo = repo.resolve()
     history = build.load_history(repo, jira)
-    if jira and jql:
+    if tickets:
+        opened = build.open_tickets_from(tickets, jira, open_n)
+    elif jira and jql:
         opened = build.open_tickets_jira(jira, jql, open_n)
     elif github:
         opened = build.open_tickets_github(github, open_n)
@@ -134,10 +137,12 @@ def setup_cmd(repo: Path = typer.Option(Path("."), help="Git repository to set u
               since: str = typer.Option("2024-01-01", help="History start date."),
               jira: str = typer.Option(None, help="Jira base URL (ticket text for PROJ-123 keys)."),
               jql: str = typer.Option(None, help="JQL of open tickets to place on the change map."),
+              tickets: Path = typer.Option(None, help="No Jira token? Open tickets from a Jira CSV export or a JSON "
+                                                      "file an agent fetched with its Jira MCP."),
               as_json: bool = typer.Option(False, "--json", help="Print the summary as JSON.")) -> None:
     """One command: ticket source, calibration on this repo, indexes, change map, MCP config."""
     from crewline import onboard
-    s = onboard.run(repo, since, jira, jql=jql)
+    s = onboard.run(repo, since, jira, jql=jql, tickets=tickets)
     typer.echo(json.dumps(s, indent=2) if as_json else onboard.report(s))
 
 

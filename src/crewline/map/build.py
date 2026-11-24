@@ -192,44 +192,132 @@ def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
     fields = ("summary,description,issuetype,priority,updated,created,duedate,assignee,status,parent,issuelinks,"
               "fixVersions," + ",".join(custom.values())).rstrip(",")
     for issue in jira.search(jql, fields=fields):
-        f = issue["fields"]
-        versions = f.get("fixVersions") or []
-        release_dates = sorted(v["releaseDate"] for v in versions if v.get("releaseDate") and not v.get("released"))
-        sprint = f.get(custom.get("Sprint", ""), None)
-        if isinstance(sprint, list) and sprint:   # Cloud: list of dicts; Server: list of "…name=Sprint 12,…" strings
-            last = sprint[-1]
-            sprint = last.get("name") if isinstance(last, dict) else (re.search(r"name=([^,\]]+)", str(last)) or
-                                                                     [None, None])[1]
-        points = f.get(custom.get("Story Points", "")) or f.get(custom.get("Story point estimate", ""))
-        links = []
-        for lk in f.get("issuelinks") or []:
-            other = lk.get("outwardIssue") or lk.get("inwardIssue") or {}
-            rel = (lk.get("type") or {}).get("outward" if "outwardIssue" in lk else "inward")
-            if other.get("key"):
-                links.append({"rel": rel, "key": other["key"]})
-        parent = f.get("parent") or {}
-        pf = parent.get("fields") or {}
-        epic_link = f.get(custom.get("Epic Link", "")) if custom.get("Epic Link") else None
-        parent_is_epic = ((pf.get("issuetype") or {}).get("name") or "").lower() == "epic"
-        out.append({"key": issue["key"], "title": f.get("summary") or "",
-                    "parent": parent.get("key") or epic_link, "parent_title": pf.get("summary"),
-                    "is_subtask": bool((f.get("issuetype") or {}).get("subtask")),
-                    "parent_kind": "epic" if (epic_link or parent_is_epic) else ("parent" if parent else None),
-                    "due": f.get("duedate"), "release_date": release_dates[0] if release_dates else None,
-                    "sprint": sprint if isinstance(sprint, str) else None, "points": points,
-                    "created": (f.get("created") or "")[:10], "updated": (f.get("updated") or "")[:10],
-                    "text": f"{f.get('summary') or ''}\n{f.get('description') or ''}",
-                    "type": (f.get("issuetype") or {}).get("name"), "url": f"{url.rstrip('/')}/browse/{issue['key']}",
-                    "assignee": (f.get("assignee") or {}).get("displayName"),
-                    "status": (f.get("status") or {}).get("name"),
-                    "priority": (f.get("priority") or {}).get("name"),
-                    "epic": parent.get("key") or epic_link, "links": links,
-                    "fix_versions": [v.get("name") for v in versions]})
+        out.append(_from_issue(issue, custom, url))
         if len(out) >= n:
             break
     _attach_parents(jira, out)
     return out
 
+
+def _from_issue(issue: dict, custom: dict[str, str], url: str | None) -> dict:
+    """One open ticket from a Jira REST issue (our own search, or what an agent fetched with its Jira MCP)."""
+    f = issue["fields"]
+    versions = f.get("fixVersions") or []
+    release_dates = sorted(v["releaseDate"] for v in versions if v.get("releaseDate") and not v.get("released"))
+    sprint = f.get(custom.get("Sprint", ""), None)
+    if isinstance(sprint, list) and sprint:   # Cloud: list of dicts; Server: list of "…name=Sprint 12,…" strings
+        last = sprint[-1]
+        sprint = last.get("name") if isinstance(last, dict) else (re.search(r"name=([^,\]]+)", str(last)) or
+                                                                 [None, None])[1]
+    points = f.get(custom.get("Story Points", "")) or f.get(custom.get("Story point estimate", ""))
+    links = []
+    for lk in f.get("issuelinks") or []:
+        other = lk.get("outwardIssue") or lk.get("inwardIssue") or {}
+        rel = (lk.get("type") or {}).get("outward" if "outwardIssue" in lk else "inward")
+        if other.get("key"):
+            links.append({"rel": rel, "key": other["key"]})
+    parent = f.get("parent") or {}
+    pf = parent.get("fields") or {}
+    epic_link = f.get(custom.get("Epic Link", "")) if custom.get("Epic Link") else None
+    parent_is_epic = ((pf.get("issuetype") or {}).get("name") or "").lower() == "epic"
+    return {"key": issue["key"], "title": f.get("summary") or "",
+            "parent": parent.get("key") or epic_link, "parent_title": pf.get("summary"),
+            "is_subtask": bool((f.get("issuetype") or {}).get("subtask")),
+            "parent_kind": "epic" if (epic_link or parent_is_epic) else ("parent" if parent else None),
+            "due": f.get("duedate"), "release_date": release_dates[0] if release_dates else None,
+            "sprint": sprint if isinstance(sprint, str) else None, "points": points,
+            "created": (f.get("created") or "")[:10], "updated": (f.get("updated") or "")[:10],
+            "text": f"{f.get('summary') or ''}\n{_plain(f.get('description'))}",
+            "type": (f.get("issuetype") or {}).get("name"),
+            "url": f"{url.rstrip('/')}/browse/{issue['key']}" if url else None,
+            "assignee": _name(f.get("assignee")),
+            "status": (f.get("status") or {}).get("name"),
+            "priority": (f.get("priority") or {}).get("name"),
+            "epic": parent.get("key") or epic_link, "links": links,
+                "fix_versions": [v.get("name") for v in versions]}
+
+
+
+def open_tickets_from(path_or_data, jira_url: str | None = None, n: int = 100) -> list[dict]:
+    """Open tickets without a Jira token: a Jira CSV export (Filters -> Export -> CSV), or JSON that an agent got
+    from its own Jira/Atlassian MCP (REST issues, {"issues": [...]}, or flat {key, summary, description, ...})."""
+    import csv
+    import io
+    data = path_or_data
+    f = Path(str(data)) if isinstance(data, (str, Path)) and len(str(data)) < 500 else None
+    if f and f.suffix.lower() in (".csv", ".json") and f.exists():
+        text = f.read_text(encoding="utf-8-sig")
+        data = list(csv.reader(io.StringIO(text))) if f.suffix.lower() == ".csv" else json.loads(text)
+    elif isinstance(data, str):
+        data = json.loads(data)
+    if data and isinstance(data, list) and isinstance(data[0], list):   # CSV rows; Jira repeats some headers
+        head, rows = data[0], data[1:]
+        items = []
+        for r in rows:
+            d: dict[str, list[str]] = defaultdict(list)
+            for h, v in zip(head, r, strict=False):
+                if v.strip():
+                    d[h.strip().lower()].append(v.strip())
+            items.append({"key": (d.get("issue key") or [""])[0], "summary": (d.get("summary") or [""])[0],
+                          "description": (d.get("description") or [""])[0],
+                          "assignee": (d.get("assignee") or [None])[0], "status": (d.get("status") or [None])[0],
+                          "priority": (d.get("priority") or [None])[0], "type": (d.get("issue type") or [None])[0],
+                          "due": (d.get("due date") or [None])[0], "created": (d.get("created") or [""])[0],
+                          "updated": (d.get("updated") or [""])[0],
+                          "parent": (d.get("parent") or d.get("parent id") or d.get("custom field (epic link)")
+                                     or [None])[0],
+                          "sprint": (d.get("sprint") or [None])[-1], "fix_versions": d.get("fix version/s", []),
+                          "points": (d.get("custom field (story points)") or [None])[0]})
+        data = items
+    if isinstance(data, dict):
+        data = data.get("issues") or data.get("results") or []
+    out = []
+    for it in data[:n]:
+        if "fields" in it:
+            out.append(_from_issue(it, {}, jira_url))
+            continue
+        key = it.get("key") or it.get("issue_key") or ""
+        summary = it.get("summary") or it.get("title") or ""
+        out.append({"key": key, "title": summary, "text": f"{summary}\n{_plain(it.get('description'))}",
+                    "type": it.get("type"), "status": it.get("status"), "priority": it.get("priority"),
+                    "assignee": it.get("assignee"), "due": (it.get("due") or None) and str(it["due"])[:10],
+                    "release_date": None, "sprint": it.get("sprint"), "points": _num(it.get("points")),
+                    "created": str(it.get("created") or "")[:10], "updated": str(it.get("updated") or "")[:10],
+                    "parent": it.get("parent"), "epic": it.get("parent"), "parent_title": None,
+                    "parent_kind": "parent" if it.get("parent") else None, "is_subtask": False, "links": [],
+                    "fix_versions": it.get("fix_versions") or [],
+                    "url": f"{jira_url.rstrip('/')}/browse/{key}" if jira_url else None})
+    by_key = {t["key"]: t for t in out}
+    for t in out:   # parents that are in the same export give terse children their context
+        p = by_key.get(t.get("parent") or "")
+        if p:
+            t["parent_title"], t["parent_text"], t["parent_status"] = p["title"], p["text"], p["status"]
+    return out
+
+
+def _plain(doc) -> str:
+    """Jira Cloud API v3 and Atlassian MCP return descriptions as ADF (a JSON tree); v2 returns text."""
+    if doc is None:
+        return ""
+    if isinstance(doc, str):
+        return doc
+    if isinstance(doc, dict):
+        own = doc.get("text") or ""
+        return own + " ".join(_plain(c) for c in doc.get("content") or [])
+    if isinstance(doc, list):
+        return " ".join(_plain(c) for c in doc)
+    return str(doc)
+
+
+def _name(person) -> str | None:
+    return person.get("displayName") if isinstance(person, dict) else person
+
+
+def _num(v) -> float | None:
+    try:
+        return float(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
 
 def _attach_parents(jira, tickets: list[dict]) -> None:
     """Fetch each parent (story/epic) once: its text helps place terse sub-tasks ("add tests", "Connect part"),

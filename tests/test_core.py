@@ -125,3 +125,21 @@ def test_jira_and_git_names_match_the_same_person():
     assert same_person("José García", "Jose Garcia")
     assert not same_person("David Jacot", "David Arthur")
     assert not same_person(None, "Alan Lau")
+
+
+def test_tickets_without_token_from_csv_export_and_agent_json(tmp_path):
+    # Jira CSV repeats headers (Fix Version/s, Sprint); Cloud/MCP descriptions are ADF trees, not text
+    import json
+
+    from crewline.map.build import open_tickets_from
+    csv_file = tmp_path / "jira.csv"
+    csv_file.write_text("Summary,Issue key,Assignee,Parent,Fix Version/s,Fix Version/s,Description\n"
+                        "Crash on save,ABC-2,An,ABC-1,4.1,4.2,NPE in Saver\nSaving,ABC-1,,,,,Epic about saving\n",
+                        encoding="utf-8")
+    t = {x["key"]: x for x in open_tickets_from(csv_file)}
+    assert t["ABC-2"]["fix_versions"] == ["4.1", "4.2"] and t["ABC-2"]["assignee"] == "An"
+    assert t["ABC-2"]["parent_text"].endswith("Epic about saving")   # parent in the same export gives context
+    adf = {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "NPE in Saver"}]}]}
+    j = open_tickets_from(json.dumps({"issues": [{"key": "ABC-3", "fields": {"summary": "Crash", "description": adf,
+                                                                             "assignee": {"displayName": "Bo"}}}]}))
+    assert "NPE in Saver" in j[0]["text"] and j[0]["assignee"] == "Bo"

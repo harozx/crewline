@@ -41,7 +41,7 @@ def pick_source(repo: Path, since: str, jira_url: str | None) -> tuple[str, str 
 
 
 def run(repo: Path, since: str = "2024-01-01", jira_url: str | None = None, max_tickets: int = 400,
-        jql: str | None = None, open_n: int = 60) -> dict:
+        jql: str | None = None, open_n: int = 60, tickets: Path | None = None) -> dict:
     repo = repo.resolve()
     if not (repo / ".git").exists():
         raise SystemExit(f"{repo} is not a git checkout")
@@ -68,7 +68,9 @@ def run(repo: Path, since: str = "2024-01-01", jira_url: str | None = None, max_
     # Change map from the same history and the same ticket source (open work placed on it).
     from crewline.map import build as cmap
     from crewline.map import render
-    if jira_url and jql:
+    if tickets:
+        opened = cmap.open_tickets_from(tickets, jira_url, open_n)
+    elif jira_url and jql:
         opened = cmap.open_tickets_jira(jira_url, jql, open_n)
     elif source == "github" and slug:
         opened = cmap.open_tickets_github(slug, open_n)
