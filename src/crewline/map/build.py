@@ -116,10 +116,21 @@ def load_history(repo: Path, jira_url: str | None = None) -> list[dict]:
 
 def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
     from crewline.sources.jira import Jira
+    jira = Jira(url)
+    custom = jira.field_ids("Sprint", "Story Points", "Story point estimate", "Epic Link")
     out = []
-    fields = "summary,description,issuetype,priority,updated,assignee,status,parent,issuelinks,fixVersions"
-    for issue in Jira(url).search(jql, fields=fields):
+    fields = ("summary,description,issuetype,priority,updated,created,duedate,assignee,status,parent,issuelinks,"
+              "fixVersions," + ",".join(custom.values())).rstrip(",")
+    for issue in jira.search(jql, fields=fields):
         f = issue["fields"]
+        versions = f.get("fixVersions") or []
+        release_dates = sorted(v["releaseDate"] for v in versions if v.get("releaseDate") and not v.get("released"))
+        sprint = f.get(custom.get("Sprint", ""), None)
+        if isinstance(sprint, list) and sprint:   # Cloud: list of dicts; Server: list of "…name=Sprint 12,…" strings
+            last = sprint[-1]
+            sprint = last.get("name") if isinstance(last, dict) else (re.search(r"name=([^,\]]+)", str(last)) or
+                                                                     [None, None])[1]
+        points = f.get(custom.get("Story Points", "")) or f.get(custom.get("Story point estimate", ""))
         links = []
         for lk in f.get("issuelinks") or []:
             other = lk.get("outwardIssue") or lk.get("inwardIssue") or {}
@@ -127,14 +138,18 @@ def open_tickets_jira(url: str, jql: str, n: int = 60) -> list[dict]:
             if other.get("key"):
                 links.append({"rel": rel, "key": other["key"]})
         parent = f.get("parent") or {}
+        epic_link = f.get(custom.get("Epic Link", "")) if custom.get("Epic Link") else None
         out.append({"key": issue["key"], "title": f.get("summary") or "",
+                    "due": f.get("duedate"), "release_date": release_dates[0] if release_dates else None,
+                    "sprint": sprint if isinstance(sprint, str) else None, "points": points,
+                    "created": (f.get("created") or "")[:10], "updated": (f.get("updated") or "")[:10],
                     "text": f"{f.get('summary') or ''}\n{f.get('description') or ''}",
                     "type": (f.get("issuetype") or {}).get("name"), "url": f"{url.rstrip('/')}/browse/{issue['key']}",
                     "assignee": (f.get("assignee") or {}).get("displayName"),
                     "status": (f.get("status") or {}).get("name"),
                     "priority": (f.get("priority") or {}).get("name"),
-                    "epic": parent.get("key"), "links": links,
-                    "fix_versions": [v.get("name") for v in f.get("fixVersions") or []]})
+                    "epic": parent.get("key") or epic_link, "links": links,
+                    "fix_versions": [v.get("name") for v in versions]})
         if len(out) >= n:
             break
     return out
@@ -267,7 +282,8 @@ def build(repo: Path, history: list[dict], open_tickets: list[dict], title: str 
     """The map page's data: the shared structure plus every open ticket's impact."""
     repo = repo.resolve()
     struct = structure(repo, history, refresh=True)
-    keep = ("key", "title", "type", "url", "assignee", "status", "priority", "epic", "links", "fix_versions")
+    keep = ("key", "title", "type", "url", "assignee", "status", "priority", "epic", "links", "fix_versions",
+            "due", "release_date", "sprint", "points", "created", "updated")
     open_out = [{**{k: t.get(k) for k in keep}, **impact(repo, t["text"], struct)} for t in open_tickets]
     collisions = overlaps(open_out)
     for t in open_out:
@@ -284,10 +300,38 @@ JIRA_PRIORITY = {"blocker": 1.0, "highest": 1.0, "critical": 0.8, "high": 0.6, "
                  "minor": 0.2, "low": 0.2, "trivial": 0.0, "lowest": 0.0}
 
 
+def _days_left(t: dict) -> int | None:
+    import datetime as dt
+    d = t.get("due") or t.get("release_date")
+    if not d:
+        return None
+    return (dt.date.fromisoformat(d[:10]) - dt.date.today()).days
+
+
+def _urgency(t: dict) -> tuple[str, float]:
+    """Time pressure from the due date (or the earliest unreleased fix version's release date) and staleness."""
+    import datetime as dt
+    left = _days_left(t)
+    src = "due" if t.get("due") else "release"
+    if left is not None:
+        if left < 0:
+            return f"{src} date passed {-left} days ago", 1.0
+        if left <= 7:
+            return f"{src} in {left} days", 0.8
+        if left <= 30:
+            return f"{src} in {left} days", 0.4
+        return "", 0.1
+    upd = t.get("updated")
+    if upd and (dt.date.today() - dt.date.fromisoformat(upd)).days > 90:
+        return f"no update for {(dt.date.today() - dt.date.fromisoformat(upd)).days} days", 0.2
+    return "", 0.0
+
+
 def prioritize(tickets: list[dict], struct: dict) -> None:
-    """Transparent priority score (0-100) with reasons. Half from what people said in Jira (priority, bug, what it
-    blocks, release), half from the code (how far a change there spreads, how bug-prone the module is, whether
-    another open ticket touches the same files). A ranking aid, not a verdict: the reasons are the point."""
+    """Transparent priority score (0-100) with reasons: 40% what people said in Jira (priority, bug, what it
+    blocks, release), 40% the code (how far a change there spreads, how bug-prone the module is, whether another
+    open ticket touches the same files), 20% time (due/release date, staleness). A ranking aid, not a verdict:
+    the reasons are the point."""
     by_id = {m["id"]: m for m in struct["modules"]}
     importers: Counter = Counter()
     for e in struct["imports"]:
@@ -319,7 +363,11 @@ def prioritize(tickets: list[dict], struct: dict) -> None:
             reasons.append(f"{round(bug_share * 100)}% of past fixes in {land} were bugs")
         if file_hits:
             reasons.append(f"same files as {file_hits} other open ticket{'s' * (file_hits > 1)}")
-        t["priority_score"] = round(100 * (0.5 * human + 0.5 * code))
+        when, urgency = _urgency(t)
+        if when:
+            reasons.insert(0, when)
+        t["days_left"] = _days_left(t)
+        t["priority_score"] = round(100 * (0.4 * human + 0.4 * code + 0.2 * urgency))
         t["priority_reasons"] = reasons
 
 

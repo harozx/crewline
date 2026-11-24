@@ -80,3 +80,17 @@ def test_test_file_detection_across_languages():
         assert is_test(t), t
     for c in ("src/latest.ts", "core/Contest.java", "crates/img/src/blur.rs", "pkg/attest/sign.go"):
         assert not is_test(c), c
+
+
+def test_due_dates_drive_urgency():
+    import datetime as dt
+
+    from crewline.map.build import _urgency
+    today = dt.date.today()
+    overdue = {"due": (today - dt.timedelta(days=3)).isoformat()}
+    soon = {"release_date": (today + dt.timedelta(days=5)).isoformat()}
+    later = {"due": (today + dt.timedelta(days=60)).isoformat()}
+    assert _urgency(overdue) == ("due date passed 3 days ago", 1.0)
+    assert _urgency(soon) == ("release in 5 days", 0.8)
+    assert _urgency(later)[1] < _urgency(soon)[1]
+    assert _urgency({})[1] == 0.0

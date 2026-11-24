@@ -97,7 +97,7 @@ function renderList(){
   const q = document.getElementById("q").value.toLowerCase(), el = document.getElementById("list");
   if (tab === "open") {
     el.innerHTML = D.open.filter(t => [t.key, t.title, t.assignee, t.status, t.epic].join(" ").toLowerCase().includes(q)).map(t =>
-      `<div class="t" data-k="${esc(t.key)}"><div class="k"><span class="chip" title="priority score" style="color:var(--ink);font-weight:600">${t.priority_score ?? "-"}</span>${esc(t.key)} <span class="chip">${esc(t.type)}</span>${t.status ? `<span class="chip">${esc(t.status)}</span>` : ""}${(t.overlaps||[]).some(c => c.level === "file") ? `<span class="chip" style="color:var(--hit)">collides</span>` : ""}</div>
+      `<div class="t" data-k="${esc(t.key)}"><div class="k"><span class="chip" title="priority score" style="color:var(--ink);font-weight:600">${t.priority_score ?? "-"}</span>${esc(t.key)} <span class="chip">${esc(t.type)}</span>${t.status ? `<span class="chip">${esc(t.status)}</span>` : ""}${(t.overlaps||[]).some(c => c.level === "file") ? `<span class="chip" style="color:var(--hit)">collides</span>` : ""}${t.days_left != null ? `<span class="chip" style="color:${t.days_left < 0 ? "var(--hit)" : t.days_left <= 7 ? "var(--impact)" : "var(--muted)"}">${t.days_left < 0 ? "overdue " + (-t.days_left) + "d" : t.days_left + "d left"}</span>` : ""}</div>
        <div>${esc(t.title)}</div><div class="m">→ ${t.modules.map(esc).join(", ")}${t.assignee ? " · " + esc(t.assignee) : ""}</div></div>`).join("") || "<p class=m>No open tickets loaded.</p>";
     el.querySelectorAll(".t").forEach(x => x.onclick = () => showTicket(x.dataset.k));
   } else if (tab === "col") {
@@ -121,6 +121,7 @@ function showTicket(k){
   highlight(t.modules, t.impact);
   document.getElementById("detail").innerHTML = `<hr><h2>${t.url ? `<a href="${esc(t.url)}" target="_blank">${esc(t.key)}</a>` : esc(t.key)} ${esc(t.title)}</h2>
    <div class="m">${[t.type, t.status, t.priority, t.assignee, t.epic ? "epic " + t.epic : "", (t.fix_versions||[]).join(", ")].filter(Boolean).map(esc).join(" · ")}</div>
+   <div class="m">${[t.due ? "due " + t.due : "", !t.due && t.release_date ? "release " + t.release_date : "", t.sprint ? "sprint " + t.sprint : "", t.points != null ? t.points + " pts" : "", t.created ? "created " + t.created : "", t.updated ? "updated " + t.updated : ""].filter(Boolean).map(esc).join(" · ")}</div>
    ${t.priority_score != null ? `<h3>Priority ${t.priority_score}/100</h3><ul>${(t.priority_reasons||[]).map(r => `<li>${esc(r)}</li>`).join("") || "<li class=m>no strong signal</li>"}</ul>` : ""}
    ${(t.overlaps||[]).length ? `<h3>Overlaps with open tickets</h3><ul>${t.overlaps.map(c => { const o = c.a === t.key ? c.b : c.a;
      return `<li><a href="#" data-k="${esc(o)}" class="ov">${esc(o)}</a> · ${c.level === "file" ? "same file: " + c.files.map(esc).join(", ") : "same module: " + c.modules.map(esc).join(", ")}${c.different_owners ? " · different assignees" : ""}</li>`; }).join("")}</ul>` : ""}

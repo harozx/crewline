@@ -41,6 +41,16 @@ class Jira:
         r.raise_for_status()
         return r.json()
 
+    def field_ids(self, *names: str) -> dict[str, str]:
+        """Custom field ids by display name (Sprint, Story Points... differ per Jira instance)."""
+        try:
+            r = self.http.get(f"{self.base}/rest/api/2/field")
+            r.raise_for_status()
+        except httpx.HTTPError:
+            return {}
+        wanted = {n.lower(): n for n in names}
+        return {wanted[f["name"].lower()]: f["id"] for f in r.json() if f.get("name", "").lower() in wanted}
+
 
 def flatten(issue: dict) -> dict:
     f = issue.get("fields", {})
